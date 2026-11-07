@@ -1,5 +1,8 @@
 # Ligar a nuvem (Firebase) do Sítio Fartura
 
+> **Situação:** já configurado em 07/11/2026 no projeto `sitio-fartura` (conta Google `cpsitiofartura@gmail.com`).
+> Este passo a passo fica de referência, caso seja preciso refazer.
+
 Com a nuvem ligada, tudo o que for lançado nos celulares vai sozinho para a internet:
 
 - os dois celulares (pai e filho) veem os mesmos dados;
@@ -20,11 +23,11 @@ Faça isso **uma vez só**, de preferência com a **conta Google do dono do sít
 
 1. No menu da esquerda: **Criação → Authentication → Vamos começar**.
 2. Em **Método de login**, escolha **E-mail/senha**, ative a primeira opção e **Salve**.
-3. Vá na aba **Usuários → Adicionar usuário** e crie os dois logins:
-   - e-mail e senha do filho;
-   - e-mail e senha do pai.
+3. Vá na aba **Usuários → Adicionar usuário** e crie o login do app.
 
-   Podem ser e-mails que eles já usam (Gmail, por exemplo). Anote as senhas e entregue para eles.
+   No Sítio Fartura, pai e filho usam **o mesmo login** (o Gmail do sítio, `cpsitiofartura@gmail.com`),
+   nos dois celulares ao mesmo tempo. Se um dia quiserem logins separados, é só criar outro usuário aqui
+   e acrescentar o e-mail nas Regras (passo 3).
 
 ## 3. Criar o banco de dados
 
@@ -32,8 +35,7 @@ Faça isso **uma vez só**, de preferência com a **conta Google do dono do sít
 2. Local: **southamerica-east1 (São Paulo)**.
 3. Escolha **Iniciar no modo de produção** e clique em **Criar**.
 4. Abra a aba **Regras**, apague o que estiver lá e cole o conteúdo do arquivo
-   [`firestore.rules`](firestore.rules), trocando os dois e-mails de exemplo pelos e-mails
-   criados no passo 2. Clique em **Publicar**.
+   [`firestore.rules`](firestore.rules) (já está com o e-mail do sítio). Clique em **Publicar**.
 
 ## 4. Pegar a configuração do app
 

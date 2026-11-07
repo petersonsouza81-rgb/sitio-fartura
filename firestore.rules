@@ -8,8 +8,7 @@ service cloud.firestore {
     function liberado() {
       return request.auth != null
         && request.auth.token.email in [
-          'EMAIL_DO_AMIGO@gmail.com',
-          'EMAIL_DO_PAI@gmail.com'
+          'cpsitiofartura@gmail.com'
         ];
     }
 
