@@ -489,7 +489,6 @@ function inicio() {
       <strong>💉 Vacinação em andamento</strong><br>
       <small>${fmtData(m.data)} · ${aplicacoesDo(m.id).length} animais lançados</small><br>
       <span class="btn primario" style="margin-bottom:0">Continuar lançamento</span></a>` : ''}
-    ${botaoInstalar()}
     <div class="resumo">
       ${GRUPOS.filter(([g]) => cont[g]).map(([g, n]) => `<a href="#/animais/${g}"><b>${cont[g]}</b><span>${n}</span></a>`).join('')}
       <a href="#/animais/todos"><b>${at.length}</b><span>Total ativos</span></a>
@@ -503,7 +502,6 @@ function inicio() {
     <h2>Últimas vacinações</h2>
     ${ultimos.length ? `<ul class="lista">${ultimos.map(itemManejo).join('')}</ul>` : '<p class="dica">Nenhuma vacinação registrada ainda.</p>'}
   `;
-  ligarInstalar();
 }
 
 function itemManejo(m) {
@@ -1463,7 +1461,7 @@ window.addEventListener('appinstalled', () => {
 });
 
 const botaoInstalar = () => appInstalado() ? '' :
-  '<button class="btn instalar" id="instalar">📲 Baixar o app no celular</button>';
+  '<p class="instalar-linha"><button class="btn pequeno" id="instalar">📲 Instalar no celular</button></p>';
 
 function ligarInstalar() {
   const b = $('#instalar');
