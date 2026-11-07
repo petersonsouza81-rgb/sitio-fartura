@@ -2,10 +2,8 @@
 
 /* =========================================================
    Sítio Fartura — controle de ovinos, caprinos, bovinos e equinos
-   Os dados ficam no próprio celular: cadastros no localStorage
-   e fotos no IndexedDB (que aguenta arquivos maiores).
-   Backup/sincronização entre aparelhos é feita pelo arquivo
-   de backup (exportar no aparelho A, importar no aparelho B).
+   Cada celular guarda uma cópia de trabalho (cadastros no localStorage,
+   fotos no IndexedDB) e sincroniza com a nuvem (Firebase), que é o backup.
    ========================================================= */
 
 const NOME_SITIO = 'Sítio Fartura';
@@ -57,11 +55,12 @@ function bancoVazio() {
     ['Antibióticos', 'antibiotico'], ['Vacina clostridiose', 'vacina']];
   return {
     versao: 1,
-    config: { filhote: { ...FILHOTE_PADRAO }, ultimoBackup: null },
+    config: { filhote: { ...FILHOTE_PADRAO } },
     animais: [],
     produtos: padrao.map(([nome, tipo]) => ({ id: 'padrao-' + tipo, nome, tipo, dose: '', criadoEm: t, atualizadoEm: t })),
     manejos: [],
     aplicacoes: [],
+    compras: [],
   };
 }
 
@@ -69,12 +68,12 @@ function carregar() {
   try {
     const d = JSON.parse(localStorage.getItem(CHAVE));
     if (d && d.versao) {
-      d.config = { ultimoBackup: null, ...d.config };
+      d.config = { ...d.config };
       // Versões antigas tinham um só limite de filhote (ovinos/caprinos).
       const antigo = d.config.diasFilhote;
       d.config.filhote = { ...FILHOTE_PADRAO, ...(antigo ? { ovino: antigo, caprino: antigo } : {}), ...d.config.filhote };
       delete d.config.diasFilhote;
-      for (const c of ['animais', 'produtos', 'manejos', 'aplicacoes']) d[c] = d[c] || [];
+      for (const c of ['animais', 'produtos', 'manejos', 'aplicacoes', 'compras']) d[c] = d[c] || [];
       // O produto padrão "Remédio para diarreia" passou a se chamar "Antibióticos".
       // As aplicações guardam o id do produto, então o histórico já mostra o nome novo.
       for (const p of d.produtos) {
@@ -172,7 +171,7 @@ const fotoDe = id => { const f = fotos.get(id); return f && f.foto ? f : null; }
    (atualizadoEm), a mesma regra da mesclagem de backups. */
 
 const FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
-const COLECOES_NUVEM = ['animais', 'produtos', 'manejos', 'aplicacoes', 'fotos'];
+const COLECOES_NUVEM = ['animais', 'produtos', 'manejos', 'aplicacoes', 'compras', 'fotos'];
 const nuvem = {
   configurada: !!window.FIREBASE_CONFIG,
   estadoConhecido: false, // já sabemos se há alguém logado?
@@ -727,11 +726,11 @@ function inicio() {
   at.forEach(a => cont[grupo(a)]++);
   const m = manejoAberto();
   const ultimos = lista('manejos').filter(x => !x.aberto).sort((a, b) => b.data.localeCompare(a.data)).slice(0, 3);
-  const ub = db.config.ultimoBackup;
-  const precisaBackup = !nuvem.usuario && db.animais.length > 0 && (!ub || Date.now() - new Date(ub) > 7 * 864e5);
+  const falta = faltaComprar();
 
   app.innerHTML = `
-    ${precisaBackup ? `<div class="aviso">Os dados ficam só neste celular. ${ub ? 'Último backup em ' + fmtData(ub.slice(0, 10)) + '.' : 'Ainda não foi feito nenhum backup.'} <a href="#/mais">Fazer backup</a></div>` : ''}
+    ${falta.length ? `<a class="cartao lembrete" href="#/almoxarifado">
+      🔔 <b>Falta comprar:</b> ${esc(falta.map(c => c.nome).join(', '))}</a>` : ''}
     ${m ? `<a class="cartao destaque" style="display:block;text-decoration:none;color:inherit" href="#/vacinacao">
       <strong>💉 Vacinação em andamento</strong><br>
       <small>${fmtData(m.data)} · ${aplicacoesDo(m.id).length} animais lançados</small><br>
@@ -746,6 +745,7 @@ function inicio() {
       <a class="btn" href="#/editar/novo">➕ Cadastrar</a>
       <a class="btn" href="#/fichas">📋 Fichas</a>
     </div>
+    <a class="btn" href="#/almoxarifado">🧰 Almoxarifado${falta.length ? ` (${falta.length} para comprar)` : ''}</a>
     <h2>Últimas vacinações</h2>
     ${ultimos.length ? `<ul class="lista">${ultimos.map(itemManejo).join('')}</ul>` : '<p class="dica">Nenhuma vacinação registrada ainda.</p>'}
   `;
@@ -1545,12 +1545,11 @@ function editarProduto(p) {
 /* Mais: backup, planilhas, configurações */
 function mais() {
   titulo('Mais');
-  const ub = db.config.ultimoBackup;
-  const podeCompartilhar = !!(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.json', { type: 'application/json' })] }));
   const nFotos = [...fotos.values()].filter(f => f.foto).length;
   app.innerHTML = `
     ${botaoInstalar()}
     <a class="btn" href="#/produtos">💊 Produtos (vacinas, vermífugos…)</a>
+    <a class="btn" href="#/almoxarifado">🧰 Almoxarifado (o que precisa comprar)</a>
 
     ${nuvem.configurada ? `<h2>☁️ Nuvem</h2>
     <div class="cartao">
@@ -1561,19 +1560,6 @@ function mais() {
         <button class="btn" id="sairNuvem">Sair desta conta neste celular</button>`
       : '<p class="dica" style="margin:0">Conectando à nuvem…</p>'}
     </div>` : ''}
-
-    <h2>Backup</h2>
-    <div class="cartao">
-      <p class="dica" style="margin-top:0">${nuvem.usuario
-        ? 'Os dados já estão protegidos na nuvem. O backup em arquivo é uma garantia extra, se quiser guardar uma cópia.'
-        : `Os dados ficam guardados <b>só neste celular</b>. Faça backup depois de cada vacinação.
-      Para juntar os lançamentos de dois celulares, exporte em um e use “Importar” no outro: os dados são <b>somados</b>, nada é apagado.`}
-      O backup leva as fotos junto.</p>
-      <p class="dica">Último backup: <b>${ub ? fmtData(ub.slice(0, 10)) + ' ' + fmtHora(ub) : 'nunca'}</b></p>
-      ${podeCompartilhar ? '<button class="btn primario" id="compartilhar">📤 Enviar backup (WhatsApp, e-mail…)</button>' : ''}
-      <button class="btn ${podeCompartilhar ? '' : 'primario'}" id="baixar">💾 Baixar arquivo de backup</button>
-      <label class="btn" style="margin-bottom:0">📥 Importar backup<input type="file" id="importar" accept=".json,application/json" hidden></label>
-    </div>
 
     <h2>Planilhas (Excel)</h2>
     <button class="btn" id="csvAnimais">📄 Animais (.csv)</button>
@@ -1594,28 +1580,6 @@ function mais() {
   const sair = $('#sairNuvem');
   if (sair) sair.onclick = sairDaNuvem;
   atualizarStatusNuvem();
-  const compartilhar = $('#compartilhar');
-  if (compartilhar) compartilhar.onclick = async () => {
-    try {
-      await navigator.share({ files: [arquivoBackup()], title: `Backup ${NOME_SITIO}` });
-      marcarBackup();
-    } catch (e) { if (e.name !== 'AbortError') toast('Não foi possível compartilhar: ' + e.message); }
-  };
-  $('#baixar').onclick = () => { baixar(arquivoBackup()); marcarBackup(); };
-  $('#importar').onchange = async e => {
-    const arq = e.target.files[0];
-    if (!arq) return;
-    try {
-      const outro = JSON.parse(await arq.text());
-      if (!outro.versao || !Array.isArray(outro.animais)) throw new Error(`arquivo não é um backup do ${NOME_SITIO}`);
-      const r = mesclar(outro);
-      alert(`Backup importado.\n${r.novos} registro(s) novo(s), ${r.atualizados} atualizado(s).`);
-      render();
-    } catch (err) {
-      alert('Não foi possível importar: ' + err.message);
-    }
-    e.target.value = '';
-  };
   $('#csvAnimais').onclick = () => baixar(csvAnimais());
   $('#csvAplic').onclick = () => baixar(csvAplicacoes());
   $('#cfg').onsubmit = e => {
@@ -1634,7 +1598,6 @@ function mais() {
 function apagarTudo() {
   const nFotos = [...fotos.values()].filter(f => f.foto).length;
   const resumo = `${lista('animais').length} animais, ${lista('manejos').length} vacinações, ${lista('aplicacoes').length} aplicações e ${nFotos} fotos`;
-  const ub = db.config.ultimoBackup;
 
   const passo = (n, html, aoContinuar) => {
     const caixa = modal(`
@@ -1652,16 +1615,15 @@ function apagarTudo() {
     ${nuvem.usuario ? '<p>A nuvem <b>não</b> é apagada: depois, os dados baixam de novo para este celular.</p>' : ''}`, pergunta2);
 
   const pergunta2 = () => {
-    const caixa = passo(2, `<h3>💾 Você fez backup?</h3>
-      <p>Último backup: <b>${ub ? fmtData(ub.slice(0, 10)) + ' às ' + fmtHora(ub) : 'nunca foi feito'}</b>.</p>
-      <p>Sem backup, os dados <b>não podem ser recuperados</b>.</p>
-      <button class="btn" id="backupAgora">💾 Baixar backup agora</button>`, pergunta3);
-    $('#backupAgora', caixa).onclick = () => {
-      baixar(arquivoBackup());
-      db.config.ultimoBackup = agoraISO();
-      salvar();
-      toast('Backup baixado ✔');
-    };
+    const faltaSubir = nuvem.pendentes > 0 || !navigator.onLine;
+    passo(2, nuvem.usuario
+      ? `<h3>☁️ A nuvem está em dia?</h3>
+        ${faltaSubir
+          ? `<p><b>Ainda há alterações que não subiram para a nuvem</b>${nuvem.pendentes ? ` (${nuvem.pendentes})` : ''}. Se apagar agora, elas se perdem.</p>
+             <p>Espere ter internet e o ícone ☁️ aparecer no topo.</p>`
+          : '<p>Tudo está salvo na nuvem. Depois de apagar, os dados baixam de novo para este celular.</p>'}`
+      : `<h3>☁️ Sem nuvem neste celular</h3>
+        <p>Este celular não está conectado à nuvem. Depois de apagar, os dados <b>não podem ser recuperados</b>.</p>`, pergunta3);
   };
 
   const pergunta3 = () => passo(3, `<h3>❗ Tem certeza absoluta?</h3>
@@ -1688,15 +1650,6 @@ function apagarTudo() {
   pergunta1();
 }
 
-function arquivoBackup() {
-  const conteudo = { ...db, fotos: Object.fromEntries(fotos) };
-  return new File([JSON.stringify(conteudo)], `sitio-fartura-backup-${hoje()}.json`, { type: 'application/json' });
-}
-function marcarBackup() {
-  db.config.ultimoBackup = agoraISO();
-  salvar();
-  render();
-}
 function baixar(arquivo) {
   const url = URL.createObjectURL(arquivo);
   const a = Object.assign(document.createElement('a'), { href: url, download: arquivo.name });
@@ -1704,29 +1657,6 @@ function baixar(arquivo) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-// Junta outro backup com este: registro novo entra, registro repetido
-// fica com a versão alterada por último.
-function mesclar(outro) {
-  let novos = 0, atualizados = 0;
-  for (const col of ['animais', 'produtos', 'manejos', 'aplicacoes']) {
-    for (const r of outro[col] || []) {
-      const i = db[col].findIndex(x => x.id === r.id);
-      if (i < 0) { db[col].push(r); novos++; enviarNuvem(col, r); }
-      else if ((r.atualizadoEm || '') > (db[col][i].atualizadoEm || '')) { db[col][i] = r; atualizados++; enviarNuvem(col, r); }
-    }
-  }
-  for (const [id, f] of Object.entries(outro.fotos || {})) {
-    const atual = fotos.get(id);
-    if (!atual) { gravarFoto(id, f); novos++; }
-    else if ((f.atualizadoEm || '') > (atual.atualizadoEm || '')) { gravarFoto(id, f); atualizados++; }
-  }
-  // só pode haver uma vacinação em andamento
-  const abertos = lista('manejos').filter(m => m.aberto).sort((a, b) => b.atualizadoEm.localeCompare(a.atualizadoEm));
-  abertos.slice(1).forEach(m => { m.aberto = false; gravar('manejos', m); });
-  salvar();
-  return { novos, atualizados };
 }
 
 function csv(nome, cabecalho, linhas) {
@@ -1808,11 +1738,110 @@ async function instalarApp() {
   $('#entendi', caixa).onclick = fecharModal;
 }
 
+/* ---------- Almoxarifado ----------
+   Lista do que está acabando. Enquanto ninguém marcar "Já comprei",
+   o app lembra uma vez por dia em cada celular. */
+
+const faltaComprar = () => lista('compras').filter(c => !c.comprado)
+  .sort((a, b) => a.criadoEm.localeCompare(b.criadoEm));
+const diaLocal = iso => {
+  const d = new Date(iso);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+};
+
+function almoxarifado() {
+  titulo('Almoxarifado', true);
+  const falta = faltaComprar();
+  const comprados = lista('compras').filter(c => c.comprado)
+    .sort((a, b) => b.compradoEm.localeCompare(a.compradoEm)).slice(0, 30);
+  const sugestoes = [...new Set([...lista('produtos').map(p => p.nome), ...lista('compras').map(c => c.nome)])]
+    .sort((a, b) => a.localeCompare(b, 'pt'));
+
+  app.innerHTML = `
+    <p class="dica" style="margin-top:0">Anote o que está acabando. O app lembra <b>uma vez por dia</b>, nos dois celulares,
+      até alguém marcar que já comprou.</p>
+    <form id="fc" class="form cartao" autocomplete="off">
+      <h2>➕ Anotar o que precisa comprar</h2>
+      <label>Medicamento ou material<input name="nome" list="sugestoes" required placeholder="ex.: Ivomec, seringa, vitamina ADE"></label>
+      <datalist id="sugestoes">${sugestoes.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+      <div class="duas">
+        <label>Quantidade <small>(opcional)</small><input name="qtd" placeholder="ex.: 2 frascos"></label>
+        <label>Obs. <small>(opcional)</small><input name="obs" placeholder="ex.: acabou ontem"></label>
+      </div>
+      <button class="btn primario">Adicionar lembrete</button>
+    </form>
+
+    <h2>🔔 Falta comprar (${falta.length})</h2>
+    ${falta.length ? `<ul class="lista">${falta.map(c => `<li class="compra">
+        <div class="info"><strong>${esc(c.nome)}</strong>
+          <small>${esc([c.qtd, c.obs, 'anotado ' + haQuanto(diaLocal(c.criadoEm))].filter(Boolean).join(' · '))}</small></div>
+        <div class="acoes">
+          <button class="btn pequeno primario" data-comprei="${c.id}">✅ Já comprei</button>
+          <button class="btn pequeno" data-tirar="${c.id}" aria-label="Tirar da lista">✕</button>
+        </div>
+      </li>`).join('')}</ul>` : '<p class="dica">Nada faltando. 👍</p>'}
+
+    ${comprados.length ? `<h2>Comprados</h2><ul class="lista">${comprados.map(c => `<li class="compra comprado">
+        <div class="info"><strong>${esc(c.nome)}</strong>
+          <small>${esc([c.qtd, 'comprado em ' + fmtData(diaLocal(c.compradoEm))].filter(Boolean).join(' · '))}</small></div>
+        <div class="acoes"><button class="btn pequeno" data-denovo="${c.id}">↺ Precisa de novo</button></div>
+      </li>`).join('')}</ul>` : ''}`;
+
+  const f = $('#fc');
+  f.onsubmit = e => {
+    e.preventDefault();
+    gravar('compras', { nome: f.nome.value.trim(), qtd: f.qtd.value.trim(), obs: f.obs.value.trim(), comprado: false, compradoEm: null });
+    toast('Lembrete anotado 🔔');
+    render();
+  };
+  app.onclick = e => {
+    const b = e.target.closest('[data-comprei],[data-tirar],[data-denovo]');
+    if (!b) return;
+    if (b.dataset.comprei) {
+      const c = achar('compras', b.dataset.comprei);
+      Object.assign(c, { comprado: true, compradoEm: agoraISO() });
+      gravar('compras', c);
+      render();
+      toast(`✅ ${c.nome} comprado`, 'Desfazer', () => { Object.assign(c, { comprado: false, compradoEm: null }); gravar('compras', c); render(); });
+    } else if (b.dataset.tirar) {
+      const c = achar('compras', b.dataset.tirar);
+      excluir('compras', c.id);
+      render();
+      toast(`${c.nome} saiu da lista`, 'Desfazer', () => { c.excluido = false; gravar('compras', c); render(); });
+    } else {
+      const c = achar('compras', b.dataset.denovo);
+      gravar('compras', { nome: c.nome, qtd: c.qtd, obs: '', comprado: false, compradoEm: null });
+      render();
+      toast(`🔔 ${c.nome} voltou para a lista`);
+    }
+  };
+}
+
+// Uma vez por dia (em cada celular), mostra o que falta comprar.
+const CHAVE_LEMBRETE = 'sitio-fartura-lembrete';
+function lembreteDoDia() {
+  const falta = faltaComprar();
+  if (!falta.length || location.hash.startsWith('#/almoxarifado') || !$('#modal').hidden) return;
+  let ultimo = null;
+  try { ultimo = localStorage.getItem(CHAVE_LEMBRETE); } catch (e) { /* sem armazenamento */ }
+  if (ultimo === hoje()) return;
+  try { localStorage.setItem(CHAVE_LEMBRETE, hoje()); } catch (e) { /* sem armazenamento */ }
+  const caixa = modal(`
+    <h3>🔔 Lembrete do almoxarifado</h3>
+    <p style="margin-bottom:4px">Falta comprar:</p>
+    <ul class="passos">${falta.map(c => `<li><b>${esc(c.nome)}</b>${c.qtd ? ' — ' + esc(c.qtd) : ''}</li>`).join('')}</ul>
+    <button class="btn primario grande" id="verAlmox">Ver almoxarifado</button>
+    <button class="btn" id="okLembrete">Ok, lembrar amanhã</button>`);
+  $('#verAlmox', caixa).onclick = () => navegar('#/almoxarifado');
+  $('#okLembrete', caixa).onclick = fecharModal;
+}
+
 /* ---------- Rotas ---------- */
 
 const ROTAS = {
   inicio, animais, animal, editar: editarAnimal, nascimento, fichas, ficha,
-  vacinacao, lancar: vacinacao, manejo, produtos, mais,
+  vacinacao, lancar: vacinacao, manejo, produtos, mais, almoxarifado,
 };
 const NAV_DA_ROTA = { animal: 'animais', editar: 'animais', ficha: 'fichas', lancar: 'vacinacao', manejo: 'vacinacao', produtos: 'mais' };
 
@@ -1829,8 +1858,10 @@ function render() {
   document.body.classList.remove('sem-nav');
   const nav = nome === 'editar' && arg === 'novo' ? 'cadastrar' : NAV_DA_ROTA[nome] || nome;
   $$('#nav a').forEach(a => a.classList.toggle('ativo', a.dataset.rota === nav));
+  app.onclick = null;
   rota(arg && decodeURIComponent(arg));
   window.scrollTo(0, 0);
+  lembreteDoDia();
 }
 
 window.addEventListener('hashchange', render);

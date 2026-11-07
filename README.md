@@ -50,8 +50,11 @@ depois de aberto a primeira vez, e não precisa de servidor: é só HTML, CSS e 
   resumo sanitário (última vez que recebeu cada produto e quantas vezes), pesagens com ganho de peso,
   partos e filhotes (fêmeas) e o histórico completo. Dá para **imprimir / salvar em PDF** ou
   **mandar como texto** pelo WhatsApp.
-- **Backup e planilhas**: exporta um arquivo `.json` (backup completo) e planilhas `.csv`
-  que abrem no Excel.
+- **Almoxarifado**: lista do que está acabando (medicamentos, seringas…). Enquanto ninguém
+  tocar em **Já comprei**, o app mostra um lembrete **uma vez por dia** ao abrir, nos dois
+  celulares, e a tela inicial mostra o aviso "Falta comprar". O que já foi comprado fica no
+  histórico, com o botão **Precisa de novo**.
+- **Planilhas**: exporta animais e aplicações em `.csv`, que abrem no Excel.
 
 ## Brincos com o mesmo número
 
@@ -61,16 +64,14 @@ avisa e sugere preencher **Marca / cor do brinco** para diferenciar na hora de t
 
 ## Onde ficam os dados
 
-**Com a nuvem ligada (recomendado):** tudo vai sozinho para o Firebase (Google), na conta do
-dono do sítio. Os dois celulares ficam iguais, funcionam sem sinal e, se um celular for perdido,
-é só entrar de novo com o e-mail e a senha. Para ligar, siga o passo a passo em [FIREBASE.md](FIREBASE.md).
+Na **nuvem (Firebase, do Google)**, na conta do sítio, que é o backup automático.
+Cada celular guarda uma cópia de trabalho (armazenamento do navegador; fotos no IndexedDB),
+então o app funciona sem sinal e envia quando a internet volta. Os dois celulares ficam iguais e,
+se um celular for perdido, é só entrar de novo com o e-mail e a senha. Como foi configurado:
+[FIREBASE.md](FIREBASE.md).
 
-**Sem a nuvem:** os dados ficam só no celular (armazenamento do navegador; as fotos no IndexedDB). Então:
-
-- Faça **backup** depois de cada vacinação (*Mais → Enviar backup*). Dá para mandar pelo WhatsApp.
-- Se duas pessoas lançarem em celulares diferentes, uma exporta e a outra **importa**:
-  o app junta os dois, sem apagar nada. Se o mesmo registro foi alterado nos dois, fica a alteração mais recente.
-- Limpar os dados do navegador apaga o banco. O backup resolve isso.
+Se `firebase-config.js` ficar com `null`, o app volta a funcionar só no celular, sem login
+(aí não há cópia em lugar nenhum: limpar os dados do navegador apaga tudo).
 
 ## Publicar no GitHub Pages
 

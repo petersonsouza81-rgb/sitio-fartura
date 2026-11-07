@@ -1,6 +1,6 @@
 // Guarda os arquivos do app no celular para funcionar sem internet no curral.
 // Ao mudar qualquer arquivo do app, aumente a VERSAO para os celulares baixarem a nova.
-const VERSAO = 'rebanho-v15';
+const VERSAO = 'rebanho-v16';
 const ARQUIVOS = [
   './', 'index.html', 'style.css', 'app.js', 'firebase-config.js', 'manifest.webmanifest',
   'icones/logo.jpg', 'icones/icone-192.png', 'icones/icone-512.png',
