@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2f6b3a">
+  <meta name="description" content="Sítio Fartura — controle de ovinos, caprinos, bovinos e equinos: cadastro, nascimentos e vacinação pelo celular.">
+  <title>Sítio Fartura</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icones/icone-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icones/icone-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="topo">
+    <button id="voltar" aria-label="Voltar" hidden>&larr;</button>
+    <a href="#/inicio" class="logo-topo" aria-label="Sítio Fartura — início"><img src="icones/logo.jpg" alt=""></a>
+    <h1 id="titulo">Sítio Fartura</h1>
+  </header>
+
+  <main id="app"></main>
+
+  <nav id="nav">
+    <a href="#/inicio" data-rota="inicio"><span>🏠</span>Início</a>
+    <a href="#/editar/novo" data-rota="cadastrar"><span>➕</span>Cadastrar</a>
+    <a href="#/animais" data-rota="animais"><span>🐑</span>Animais</a>
+    <a href="#/vacinacao" data-rota="vacinacao"><span>💉</span>Vacinar</a>
+    <a href="#/nascimento" data-rota="nascimento"><span>🍼</span>Parto</a>
+    <a href="#/fichas" data-rota="fichas"><span>📋</span>Fichas</a>
+    <a href="#/mais" data-rota="mais"><span>⚙️</span>Mais</a>
+  </nav>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <div id="modal" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

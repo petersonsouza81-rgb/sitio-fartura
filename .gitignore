@@ -1,0 +1,10 @@
+# Configuração local do servidor de testes (só para o computador)
+.claude/
+
+# Arquivo original do logo; o app usa a cópia em icones/logo.jpg
+Logo/
+
+# Arquivos do sistema
+Thumbs.db
+desktop.ini
+.DS_Store
