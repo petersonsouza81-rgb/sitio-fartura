@@ -186,9 +186,19 @@ dl.dados dd { margin: 0; font-weight: 600; }
 .abas button.on { border-color: var(--verde); color: var(--verde); font-weight: 700; box-shadow: inset 0 -3px 0 var(--verde); }
 
 .alvo { margin-bottom: 8px; }
+.alvo-linha { display: flex; gap: 8px; }
 .alvo .item { margin: 0; padding: 14px 12px; }
-.alvo.feito .item { border-color: var(--ok); background: var(--verde-claro); }
-.alvo.feito .item:has(+ .recebeu) { border-radius: var(--raio) var(--raio) 0 0; }
+.alvo .ajustar {
+  flex: 0 0 52px; font-size: 24px; font-weight: 700; cursor: pointer;
+  border: 1px solid var(--borda); background: var(--cartao); color: var(--suave); border-radius: var(--raio);
+}
+.alvo.feito .item { border-color: var(--ok); background: var(--verde-claro); border-radius: var(--raio) var(--raio) 0 0; }
+
+/* "Aplicando agora": o que vai ser lançado ao tocar no animal */
+.aplicando { background: var(--cartao); border: 1px solid var(--borda); border-radius: var(--raio); padding: 8px 10px; margin-bottom: 8px; }
+.aplicando > span { display: block; font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+.aplicando .chip { padding: 9px 12px; font-size: 15px; }
+#selProdutos.alerta { outline: 3px solid var(--perigo); outline-offset: 4px; border-radius: 6px; }
 .recebeu {
   font-size: 14px; padding: 6px 12px 8px; color: var(--texto);
   background: var(--cartao); border: 1px solid var(--borda); border-top: 0;

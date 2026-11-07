@@ -907,11 +907,13 @@ function nascimento(maeId) {
   };
 }
 
-/* Vacinação: escolhe o animal e lança o que foi feito nele.
+/* Vacinação: marca no topo o que está aplicando e toca no animal para lançar,
+   sem janela nem pergunta. Peso/obs. e correções ficam no botão "⋯".
    O dia de vacinação (manejo) é criado sozinho no primeiro lançamento. */
 let abaLancar = 'todos';
 let especieVacina = 'todos';
 let dataVacina = null;
+let produtosSel = null; // Set com os produtos marcados no topo da tela
 
 const baseLancar = m => ativos().filter(a => m.publico === 'todos' || a.especie === m.publico);
 const baseVacina = () => ativos().filter(a => especieVacina === 'todos' || a.especie === especieVacina);
@@ -929,6 +931,10 @@ function vacinacao() {
   const especiesUsadas = Object.keys(ESPECIES).filter(e => ativos().some(a => a.especie === e));
   if (especieVacina !== 'todos' && !especiesUsadas.includes(especieVacina)) especieVacina = 'todos';
   const historico = lista('manejos').filter(x => !x.aberto).sort((a, b) => b.data.localeCompare(a.data));
+  const prods = lista('produtos').filter(p => !p.inativo);
+  // Na primeira vez, já vem marcado o que o último animal recebeu.
+  if (!produtosSel) produtosSel = new Set(m ? ultimoLancado(m) : []);
+  for (const id of [...produtosSel]) if (!prods.some(p => p.id === id)) produtosSel.delete(id);
 
   app.innerHTML = `
     <div class="linha-data">
@@ -940,6 +946,12 @@ function vacinacao() {
         `<button class="chip ${v === especieVacina ? 'on' : ''}" data-v="${v}">${t}</button>`).join('')}
     </div>` : ''}
     <div class="painel-lancar">
+      <div class="aplicando">
+        <span>Aplicando agora <small>(toque para marcar)</small></span>
+        <div class="chips" id="selProdutos">
+          ${prods.map(p => `<button class="chip ${produtosSel.has(p.id) ? 'on' : ''}" data-id="${p.id}">${esc(p.nome)}</button>`).join('')}
+        </div>
+      </div>
       <input id="q" class="campo-brinco" inputmode="numeric" placeholder="Buscar nº do brinco" autocomplete="off" enterkeyhint="done">
       <div class="abas" id="abas">
         <button data-aba="todos">Todos <b id="nt"></b></button>
@@ -947,9 +959,9 @@ function vacinacao() {
         <button data-aba="feitos">Feitos <b id="nd"></b></button>
       </div>
     </div>
-    <p class="dica" style="margin:0 0 8px">Toque no animal para lançar o que foi feito nele.</p>
+    <p class="dica" style="margin:0 0 8px">Toque no animal e ele já fica lançado. Use <b>⋯</b> para anotar peso ou observação.</p>
     <div id="res"></div>
-    ${m ? '<button class="btn" id="encerrar" style="margin-top:24px">✅ Encerrar o dia de vacinação</button>' : ''}
+    <button class="btn" id="encerrar" style="margin-top:24px" hidden>✅ Encerrar o dia de vacinação</button>
     <a class="btn" href="#/produtos">💊 Ver / cadastrar produtos</a>
     <h2>Histórico</h2>
     ${historico.length ? `<ul class="lista">${historico.map(itemManejo).join('')}</ul>` : '<p class="dica">Nenhuma vacinação encerrada ainda.</p>'}`;
@@ -958,10 +970,17 @@ function vacinacao() {
   q.oninput = atualizarLancar;
   q.onkeydown = e => {
     if (e.key !== 'Enter') return;
-    // Enter com um único animal com esse brinco = abre direto
+    // Enter com um único animal com esse brinco = lança direto
     const t = q.value.trim().toLowerCase();
     const exatos = baseVacina().filter(a => a.brinco && a.brinco.toLowerCase() === t);
-    if (exatos.length === 1) abrirLancamento(exatos[0].id);
+    if (exatos.length === 1) lancarRapido(exatos[0].id);
+  };
+  $('#selProdutos').onclick = e => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    b.classList.toggle('on');
+    if (b.classList.contains('on')) produtosSel.add(b.dataset.id); else produtosSel.delete(b.dataset.id);
+    $('#selProdutos').classList.remove('alerta');
   };
   $('#dataVacina').onchange = e => {
     if (!e.target.value) return;
@@ -986,11 +1005,13 @@ function vacinacao() {
   $('#res').onclick = e => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.animal) abrirLancamento(b.dataset.animal);
+    if (b.dataset.animal) lancarRapido(b.dataset.animal);
+    else if (b.dataset.detalhe) abrirLancamento(b.dataset.detalhe);
     else if (b.dataset.criar) criarEabrir(b.dataset.criar, q.value.trim());
   };
-  const enc = $('#encerrar');
-  if (enc) enc.onclick = () => {
+  $('#encerrar').onclick = () => {
+    const m = manejoAberto();
+    if (!m) return;
     const faltam = baseLancar(m).length - new Set(aplicacoesDo(m.id).map(x => x.animalId)).size;
     if (!confirm(faltam > 0 ? `${faltam} animal(is) não foram lançados. Encerrar o dia mesmo assim?` : 'Encerrar este dia de vacinação?')) return;
     m.aberto = false;
@@ -1016,13 +1037,19 @@ function atualizarLancar() {
   $('#nf').textContent = base.length - feitos;
   $('#nd').textContent = feitos;
   $$('#abas button').forEach(b => b.classList.toggle('on', b.dataset.aba === abaLancar));
+  $('#encerrar').hidden = !m;
 
+  // Animal ainda não lançado: tocar lança na hora; "⋯" abre peso/obs.
+  // Animal já lançado: tocar abre para corrigir ou remover.
   const cartao = a => {
     const ap = porAnimal.get(a.id);
-    const extra = ap ? `<span class="feito-txt">✔ ${fmtHora(ap.criadoEm)}</span>` : '<span class="seta">›</span>';
+    const extra = ap ? `<span class="feito-txt">✔ ${fmtHora(ap.criadoEm)}</span>` : '';
     const recebeu = ap ? `<div class="recebeu">${esc(nomesProdutos(ap.produtoIds))}${ap.peso != null ? ' · ' + fmtKg(ap.peso) : ''}${ap.obs ? ' · ' + esc(ap.obs) : ''}</div>` : '';
     return `<div class="alvo ${ap ? 'feito' : ''}">
-      ${itemAnimal(a, { tag: 'button', extra, attrs: `data-animal="${a.id}"` })}${recebeu}
+      <div class="alvo-linha">
+        ${itemAnimal(a, { tag: 'button', extra, attrs: ap ? `data-detalhe="${a.id}"` : `data-animal="${a.id}"` })}
+        ${ap ? '' : `<button class="ajustar" data-detalhe="${a.id}" aria-label="Lançar com peso ou observação">⋯</button>`}
+      </div>${recebeu}
     </div>`;
   };
 
@@ -1062,7 +1089,35 @@ function criarEabrir(chave, brinco) {
   const novo = { especie, sexo, brinco, marca: '', nascimento: '', pesoNasc: null, maeId: '', situacao: 'ativo', obs: 'Cadastrado durante a vacinação' };
   if (!confirmarDuplicado(novo)) return;
   gravar('animais', novo);
-  abrirLancamento(novo.id);
+  lancarRapido(novo.id);
+}
+
+// Lança o animal com o que está marcado no topo, sem perguntar nada.
+function lancarRapido(animalId) {
+  const a = achar('animais', animalId);
+  if (!a) return;
+  if (!produtosSel || !produtosSel.size) {
+    toast('Marque em cima o que está aplicando.');
+    $('#selProdutos')?.classList.add('alerta');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+  const m = manejoAberto();
+  if (m && aplicacoesDo(m.id).some(x => x.animalId === animalId)) return abrirLancamento(animalId);
+  const novo = gravar('aplicacoes', { manejoId: garantirManejo().id, animalId, produtoIds: [...produtosSel], peso: null, obs: '' });
+  toast(`✔ ${nomeBrinco(a)} ${categoria(a)}`, 'Desfazer', () => { excluir('aplicacoes', novo.id); atualizarLancar(); });
+  if (navigator.vibrate) navigator.vibrate(40);
+  depoisDeLancar();
+}
+
+// Limpa a busca e deixa pronto para o próximo animal.
+function depoisDeLancar() {
+  const q = $('#q');
+  if (!q) return;
+  const buscando = !!q.value;
+  q.value = '';
+  atualizarLancar();
+  if (buscando) q.focus();
 }
 
 // O que o último animal lançado recebeu (para o botão "igual ao anterior").
@@ -1077,7 +1132,7 @@ function abrirLancamento(animalId) {
   const a = achar('animais', animalId);
   if (!a) return;
   const ap = m && aplicacoesDo(m.id).find(x => x.animalId === animalId);
-  const marcados = new Set(ap ? ap.produtoIds : []);
+  const marcados = new Set(ap ? ap.produtoIds : produtosSel || []);
   const prods = lista('produtos').filter(p => !p.inativo || marcados.has(p.id));
   const anterior = ap || !m ? [] : ultimoLancado(m, animalId);
   const ult = historicoDe(a)[0];
@@ -1133,15 +1188,7 @@ function abrirLancamento(animalId) {
       toast('✔ ' + rotulo(a), 'Desfazer', () => { excluir('aplicacoes', novo.id); atualizarLancar(); });
       if (navigator.vibrate) navigator.vibrate(40);
     }
-    // Primeiro lançamento do dia: redesenha a tela para aparecer "Encerrar o dia".
-    if (!m) return render();
-    const q = $('#q');
-    if (q) {
-      const buscando = !!q.value;
-      q.value = '';
-      atualizarLancar();
-      if (buscando) q.focus();
-    }
+    depoisDeLancar();
   };
 }
 
