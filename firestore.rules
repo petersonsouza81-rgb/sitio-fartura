@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// Regras de segurança do banco de dados do Sítio Fartura.
+// Só os e-mails da lista podem ler e gravar. Para dar acesso a mais alguém,
+// crie o login em Authentication e acrescente o e-mail aqui.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function liberado() {
+      return request.auth != null
+        && request.auth.token.email in [
+          'EMAIL_DO_AMIGO@gmail.com',
+          'EMAIL_DO_PAI@gmail.com'
+        ];
+    }
+
+    match /{colecao}/{id} {
+      allow read, write: if liberado();
+    }
+  }
+}

@@ -61,7 +61,11 @@ avisa e sugere preencher **Marca / cor do brinco** para diferenciar na hora de t
 
 ## Onde ficam os dados
 
-No **próprio celular** (armazenamento do navegador; as fotos ficam no IndexedDB). Por isso:
+**Com a nuvem ligada (recomendado):** tudo vai sozinho para o Firebase (Google), na conta do
+dono do sítio. Os dois celulares ficam iguais, funcionam sem sinal e, se um celular for perdido,
+é só entrar de novo com o e-mail e a senha. Para ligar, siga o passo a passo em [FIREBASE.md](FIREBASE.md).
+
+**Sem a nuvem:** os dados ficam só no celular (armazenamento do navegador; as fotos no IndexedDB). Então:
 
 - Faça **backup** depois de cada vacinação (*Mais → Enviar backup*). Dá para mandar pelo WhatsApp.
 - Se duas pessoas lançarem em celulares diferentes, uma exporta e a outra **importa**:
@@ -98,5 +102,8 @@ e acesse `http://localhost:8080`.
 | `style.css` | Visual (claro/escuro, pensado para tela de celular) |
 | `app.js` | Telas, regras e banco de dados |
 | `sw.js` | Funcionamento sem internet |
+| `firebase-config.js` | Configuração da nuvem (vazia = app só no celular) |
+| `firestore.rules` | Regras de segurança da nuvem (quem pode acessar) |
+| `FIREBASE.md` | Passo a passo para ligar a nuvem |
 | `manifest.webmanifest`, `icones/` | Instalar na tela inicial do celular (ícones feitos a partir do logo) |
 | `icones/logo.jpg` | Logo do Sítio Fartura (cópia de `Logo/Conscape.jpeg`), usado no topo e nos relatórios |

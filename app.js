@@ -50,14 +50,16 @@ const TIPOS_PRODUTO = {
 const FILHOTE_PADRAO = { ovino: 180, caprino: 180, bovino: 365, equino: 365 };
 
 function bancoVazio() {
-  const t = agoraISO();
+  // Produtos padrão com código fixo e data antiga: num celular novo ligado à nuvem,
+  // eles não duplicam nem passam por cima de alterações feitas no outro celular.
+  const t = '2000-01-01T00:00:00.000Z';
   const padrao = [['Vermífugo', 'vermifugo'], ['Vitamina', 'vitamina'],
     ['Antibióticos', 'antibiotico'], ['Vacina clostridiose', 'vacina']];
   return {
     versao: 1,
     config: { filhote: { ...FILHOTE_PADRAO }, ultimoBackup: null },
     animais: [],
-    produtos: padrao.map(([nome, tipo]) => ({ id: uid(), nome, tipo, dose: '', criadoEm: t, atualizadoEm: t })),
+    produtos: padrao.map(([nome, tipo]) => ({ id: 'padrao-' + tipo, nome, tipo, dose: '', criadoEm: t, atualizadoEm: t })),
     manejos: [],
     aplicacoes: [],
   };
@@ -111,6 +113,7 @@ function gravar(col, reg) {
     db[col].push(reg);
   }
   salvar();
+  enviarNuvem(col, reg);
   return reg;
 }
 
@@ -120,6 +123,7 @@ function excluir(col, id) {
     r.excluido = true;
     r.atualizadoEm = agoraISO();
     salvar();
+    enviarNuvem(col, r);
   }
 }
 
@@ -148,11 +152,254 @@ function carregarFotos() {
   });
 }
 
-function gravarFoto(animalId, valor) {
-  fotos.set(animalId, valor);
-  if (idb) idb.transaction('fotos', 'readwrite').objectStore('fotos').put(valor, animalId);
+// Grava só neste celular (usado também quando a foto chega da nuvem).
+function gravarFotoLocal(chave, valor) {
+  fotos.set(chave, valor);
+  if (idb) idb.transaction('fotos', 'readwrite').objectStore('fotos').put(valor, chave);
+}
+
+function gravarFoto(chave, valor) {
+  gravarFotoLocal(chave, valor);
+  enviarNuvem('fotos', { id: chave, ...valor });
 }
 const fotoDe = id => { const f = fotos.get(id); return f && f.foto ? f : null; };
+
+/* ---------- Nuvem (Firebase) ----------
+   Só liga quando firebase-config.js tem a configuração do projeto.
+   O celular continua sendo a cópia de trabalho (funciona sem sinal):
+   cada gravação é enviada para o Firestore, e o que o outro celular
+   grava chega pelo onSnapshot. Em conflito, vale a alteração mais recente
+   (atualizadoEm), a mesma regra da mesclagem de backups. */
+
+const FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+const COLECOES_NUVEM = ['animais', 'produtos', 'manejos', 'aplicacoes', 'fotos'];
+const nuvem = {
+  configurada: !!window.FIREBASE_CONFIG,
+  estadoConhecido: false, // já sabemos se há alguém logado?
+  usuario: null,
+  fs: null, api: null, auth: null, authApi: null,
+  pendentes: 0,
+  sincronizadas: new Set(), // coleções já comparadas com o servidor nesta sessão
+  ultimaSinc: null,
+  erro: '',
+  cancelar: [],
+};
+
+async function iniciarNuvem() {
+  if (!nuvem.configurada) return;
+  try {
+    const [appMod, authMod, fsMod] = await Promise.all([
+      import(FIREBASE_SDK + 'firebase-app.js'),
+      import(FIREBASE_SDK + 'firebase-auth.js'),
+      import(FIREBASE_SDK + 'firebase-firestore.js'),
+    ]);
+    const fbApp = appMod.initializeApp(window.FIREBASE_CONFIG);
+    nuvem.auth = authMod.getAuth(fbApp);
+    nuvem.authApi = authMod;
+    // Cache no próprio celular: lançamentos feitos sem sinal ficam na fila e sobem sozinhos.
+    nuvem.fs = fsMod.initializeFirestore(fbApp, {
+      localCache: fsMod.persistentLocalCache({ tabManager: fsMod.persistentMultipleTabManager() }),
+    });
+    nuvem.api = fsMod;
+    authMod.onAuthStateChanged(nuvem.auth, u => {
+      const mudou = (nuvem.usuario && nuvem.usuario.uid) !== (u && u.uid) || !nuvem.estadoConhecido;
+      nuvem.usuario = u;
+      nuvem.estadoConhecido = true;
+      if (u) conectarNuvem(); else desconectarNuvem();
+      atualizarStatusNuvem();
+      if (mudou) render();
+    });
+  } catch (e) {
+    // Sem internet na primeira abertura: o app segue funcionando no celular.
+    nuvem.erro = 'Não foi possível conectar à nuvem agora.';
+    nuvem.estadoConhecido = true;
+    atualizarStatusNuvem();
+  }
+}
+
+function conectarNuvem() {
+  desconectarNuvem();
+  const { collection, onSnapshot } = nuvem.api;
+  nuvem.cancelar = COLECOES_NUVEM.map(col => onSnapshot(
+    collection(nuvem.fs, col), { includeMetadataChanges: true },
+    snap => receberNuvem(col, snap),
+    e => { nuvem.erro = mensagemErroNuvem(e); atualizarStatusNuvem(); },
+  ));
+}
+
+function desconectarNuvem() {
+  nuvem.cancelar.forEach(f => f());
+  nuvem.cancelar = [];
+  nuvem.sincronizadas.clear();
+}
+
+// Junta no celular o que veio da nuvem.
+function receberNuvem(col, snap) {
+  let mudou = false;
+  for (const ch of snap.docChanges()) {
+    if (ch.type === 'removed') continue;
+    const r = ch.doc.data();
+    if (col === 'fotos') {
+      const atual = fotos.get(ch.doc.id);
+      if (!atual || (r.atualizadoEm || '') > (atual.atualizadoEm || '')) { gravarFotoLocal(ch.doc.id, r); mudou = true; }
+      continue;
+    }
+    const i = db[col].findIndex(x => x.id === ch.doc.id);
+    if (i < 0) { db[col].push(r); mudou = true; }
+    else if ((r.atualizadoEm || '') > (db[col][i].atualizadoEm || '')) { db[col][i] = r; mudou = true; }
+  }
+  // Primeira resposta do servidor: sobe o que só existe neste celular (ou está mais novo aqui).
+  if (!snap.metadata.fromCache && !nuvem.sincronizadas.has(col)) {
+    nuvem.sincronizadas.add(col);
+    if (subirDiferencas(col, snap)) mudou = true;
+  }
+  if (!snap.metadata.fromCache) nuvem.ultimaSinc = new Date();
+  if (nuvem.erro && !snap.metadata.fromCache) nuvem.erro = '';
+  if (mudou) {
+    if (col !== 'fotos') salvar();
+    agendarRender();
+  }
+  atualizarStatusNuvem();
+}
+
+function subirDiferencas(col, snap) {
+  const remotos = new Map(snap.docs.map(d => [d.id, d.data()]));
+  let removeuLocal = false;
+  if (col === 'fotos') {
+    for (const [chave, f] of fotos) {
+      const r = remotos.get(chave);
+      if (!r || (f.atualizadoEm || '') > (r.atualizadoEm || '')) enviarNuvem('fotos', { id: chave, ...f });
+    }
+    return false;
+  }
+  // Produto deste celular com o mesmo nome de um que já está na nuvem (ex.: os dois
+  // celulares tinham "Vermífugo" antes da nuvem): usa o da nuvem e passa os
+  // lançamentos daqui para ele, em vez de ficar com dois produtos iguais.
+  const nome = p => p.nome.trim().toLowerCase();
+  const idPorNome = new Map(col !== 'produtos' ? []
+    : [...remotos.entries()].filter(([, r]) => !r.excluido).map(([id, r]) => [nome(r), id]));
+  for (const reg of [...db[col]]) {
+    const r = remotos.get(reg.id);
+    if (r && (reg.atualizadoEm || '') <= (r.atualizadoEm || '')) continue;
+    const idRemoto = !r && col === 'produtos' && !reg.excluido && idPorNome.get(nome(reg));
+    if (idRemoto) {
+      for (const ap of db.aplicacoes) {
+        if (!ap.produtoIds.includes(reg.id)) continue;
+        ap.produtoIds = ap.produtoIds.map(x => x === reg.id ? idRemoto : x);
+        ap.atualizadoEm = agoraISO();
+        enviarNuvem('aplicacoes', ap);
+      }
+      if (produtosSel && produtosSel.delete(reg.id)) produtosSel.add(idRemoto);
+      db.produtos.splice(db.produtos.indexOf(reg), 1);
+      removeuLocal = true;
+      continue;
+    }
+    enviarNuvem(col, reg);
+  }
+  return removeuLocal;
+}
+
+function enviarNuvem(col, reg) {
+  if (!nuvem.usuario || !nuvem.api) return;
+  const { doc, setDoc } = nuvem.api;
+  const dados = JSON.parse(JSON.stringify(reg)); // o Firestore não aceita campos "undefined"
+  nuvem.pendentes++;
+  atualizarStatusNuvem();
+  // A promessa só termina quando o servidor confirma; sem sinal, fica na fila do Firestore.
+  setDoc(doc(nuvem.fs, col, String(reg.id)), dados)
+    .then(() => { nuvem.ultimaSinc = new Date(); nuvem.erro = ''; })
+    .catch(e => { nuvem.erro = mensagemErroNuvem(e); })
+    .finally(() => { nuvem.pendentes--; atualizarStatusNuvem(); });
+}
+
+function mensagemErroNuvem(e) {
+  const c = (e && e.code) || '';
+  if (c.includes('permission-denied')) return 'Este login não tem permissão para os dados do sítio.';
+  if (c.includes('unavailable')) return 'Sem conexão com a nuvem. Os dados ficam guardados no celular.';
+  return 'Erro na nuvem: ' + ((e && e.message) || c);
+}
+
+function atualizarStatusNuvem() {
+  const el = $('#statusNuvem');
+  if (!el) return;
+  if (!nuvem.configurada || !nuvem.usuario) { el.hidden = true; return; }
+  el.hidden = false;
+  const [icone, texto] = nuvem.erro ? ['⚠️', nuvem.erro]
+    : !navigator.onLine ? ['📴', 'Sem internet. Os lançamentos sobem sozinhos quando o sinal voltar.']
+    : nuvem.pendentes ? ['⏳', `Enviando ${nuvem.pendentes} alteração(ões) para a nuvem…`]
+    : ['☁️', 'Tudo salvo na nuvem.'];
+  el.textContent = icone + (nuvem.pendentes ? ' ' + nuvem.pendentes : '');
+  el.title = texto;
+  const txt = $('#textoNuvem');
+  if (txt) txt.textContent = texto + (nuvem.ultimaSinc ? ` (última conexão às ${fmtHora(nuvem.ultimaSinc.toISOString())})` : '');
+  el.onclick = () => toast(texto);
+}
+window.addEventListener('online', atualizarStatusNuvem);
+window.addEventListener('offline', atualizarStatusNuvem);
+
+let renderTimer;
+function agendarRender() {
+  clearTimeout(renderTimer);
+  // Não redesenha com uma janela aberta ou enquanto a pessoa digita.
+  renderTimer = setTimeout(() => {
+    const digitando = document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
+    if (!$('#modal').hidden || digitando) return agendarRender();
+    if (location.hash.startsWith('#/vacinacao') && typeof atualizarLancar === 'function' && $('#q')) atualizarLancar();
+    else render();
+  }, 400);
+}
+
+/* Tela de entrada (só quando a nuvem está ligada e ninguém entrou neste celular) */
+function telaLogin() {
+  titulo(NOME_SITIO);
+  document.body.classList.add('sem-nav');
+  app.innerHTML = `
+    <div class="login">
+      <img src="${LOGO}" alt="Logo ${NOME_SITIO}">
+      <h2>${NOME_SITIO}</h2>
+      <p class="dica">Entre com o e-mail e a senha do sítio. Só precisa fazer isso uma vez neste celular.</p>
+      <form id="fl" class="form">
+        <label>E-mail<input type="email" name="email" autocomplete="username" required></label>
+        <label>Senha<input type="password" name="senha" autocomplete="current-password" required></label>
+        <button class="btn primario grande">Entrar</button>
+        <button type="button" class="btn" id="esqueci">Esqueci a senha</button>
+      </form>
+    </div>`;
+  const f = $('#fl');
+  const { signInWithEmailAndPassword, sendPasswordResetEmail } = nuvem.authApi;
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const b = $('button.primario', f);
+    b.disabled = true;
+    b.textContent = 'Entrando…';
+    try {
+      await signInWithEmailAndPassword(nuvem.auth, f.email.value.trim(), f.senha.value);
+      toast('Bem-vindo! Os dados vão aparecer em instantes.');
+    } catch (err) {
+      const c = err.code || '';
+      toast(c.includes('network') ? 'Sem internet. Para entrar a primeira vez precisa de sinal.'
+        : c.includes('too-many') ? 'Muitas tentativas. Espere alguns minutos.'
+        : 'E-mail ou senha errados.');
+      b.disabled = false;
+      b.textContent = 'Entrar';
+    }
+  };
+  $('#esqueci').onclick = async () => {
+    const email = f.email.value.trim();
+    if (!email) return toast('Digite o e-mail primeiro.');
+    try {
+      await sendPasswordResetEmail(nuvem.auth, email);
+      toast('Enviamos um e-mail para criar uma nova senha.');
+    } catch (err) {
+      toast('Não foi possível enviar o e-mail. Confira o endereço.');
+    }
+  };
+}
+
+function sairDaNuvem() {
+  if (!confirm('Sair da conta neste celular?\n\nOs dados continuam guardados na nuvem e voltam quando entrar de novo.')) return;
+  nuvem.authApi.signOut(nuvem.auth);
+}
 
 function reduzir(img, max, qualidade) {
   const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
@@ -481,7 +728,7 @@ function inicio() {
   const m = manejoAberto();
   const ultimos = lista('manejos').filter(x => !x.aberto).sort((a, b) => b.data.localeCompare(a.data)).slice(0, 3);
   const ub = db.config.ultimoBackup;
-  const precisaBackup = db.animais.length > 0 && (!ub || Date.now() - new Date(ub) > 7 * 864e5);
+  const precisaBackup = !nuvem.usuario && db.animais.length > 0 && (!ub || Date.now() - new Date(ub) > 7 * 864e5);
 
   app.innerHTML = `
     ${precisaBackup ? `<div class="aviso">Os dados ficam só neste celular. ${ub ? 'Último backup em ' + fmtData(ub.slice(0, 10)) + '.' : 'Ainda não foi feito nenhum backup.'} <a href="#/mais">Fazer backup</a></div>` : ''}
@@ -1305,10 +1552,22 @@ function mais() {
     ${botaoInstalar()}
     <a class="btn" href="#/produtos">💊 Produtos (vacinas, vermífugos…)</a>
 
+    ${nuvem.configurada ? `<h2>☁️ Nuvem</h2>
+    <div class="cartao">
+      ${nuvem.usuario ? `<p style="margin-top:0">Conectado como <b>${esc(nuvem.usuario.email)}</b>.</p>
+        <p class="dica">Tudo o que é lançado aqui vai sozinho para a nuvem e aparece no outro celular.
+        Se este celular quebrar ou for trocado, é só entrar de novo com o mesmo e-mail e senha.</p>
+        <p class="dica">Situação: <b id="textoNuvem"></b></p>
+        <button class="btn" id="sairNuvem">Sair desta conta neste celular</button>`
+      : '<p class="dica" style="margin:0">Conectando à nuvem…</p>'}
+    </div>` : ''}
+
     <h2>Backup</h2>
     <div class="cartao">
-      <p class="dica" style="margin-top:0">Os dados ficam guardados <b>só neste celular</b>. Faça backup depois de cada vacinação.
-      Para juntar os lançamentos de dois celulares, exporte em um e use “Importar” no outro: os dados são <b>somados</b>, nada é apagado.
+      <p class="dica" style="margin-top:0">${nuvem.usuario
+        ? 'Os dados já estão protegidos na nuvem. O backup em arquivo é uma garantia extra, se quiser guardar uma cópia.'
+        : `Os dados ficam guardados <b>só neste celular</b>. Faça backup depois de cada vacinação.
+      Para juntar os lançamentos de dois celulares, exporte em um e use “Importar” no outro: os dados são <b>somados</b>, nada é apagado.`}
       O backup leva as fotos junto.</p>
       <p class="dica">Último backup: <b>${ub ? fmtData(ub.slice(0, 10)) + ' ' + fmtHora(ub) : 'nunca'}</b></p>
       ${podeCompartilhar ? '<button class="btn primario" id="compartilhar">📤 Enviar backup (WhatsApp, e-mail…)</button>' : ''}
@@ -1332,6 +1591,9 @@ function mais() {
     <p class="dica" style="text-align:center">${NOME_SITIO} · ${lista('animais').length} animais · ${nFotos} fotos · ${lista('aplicacoes').length} aplicações</p>`;
 
   ligarInstalar();
+  const sair = $('#sairNuvem');
+  if (sair) sair.onclick = sairDaNuvem;
+  atualizarStatusNuvem();
   const compartilhar = $('#compartilhar');
   if (compartilhar) compartilhar.onclick = async () => {
     try {
@@ -1386,7 +1648,8 @@ function apagarTudo() {
   };
 
   const pergunta1 = () => passo(1, `<h3>⚠️ Apagar todos os dados deste celular?</h3>
-    <p>Isso apaga <b>${resumo}</b>.</p>`, pergunta2);
+    <p>Isso apaga <b>${resumo}</b>.</p>
+    ${nuvem.usuario ? '<p>A nuvem <b>não</b> é apagada: depois, os dados baixam de novo para este celular.</p>' : ''}`, pergunta2);
 
   const pergunta2 = () => {
     const caixa = passo(2, `<h3>💾 Você fez backup?</h3>
@@ -1414,6 +1677,8 @@ function apagarTudo() {
         fotos.clear();
         if (idb) idb.transaction('fotos', 'readwrite').objectStore('fotos').clear();
         fecharModal();
+        // Com a nuvem ligada, só este celular foi limpo: recarrega para baixar tudo de novo.
+        if (nuvem.usuario) return location.reload();
         toast('Todos os dados foram apagados');
         navegar('#/inicio');
       });
@@ -1448,8 +1713,8 @@ function mesclar(outro) {
   for (const col of ['animais', 'produtos', 'manejos', 'aplicacoes']) {
     for (const r of outro[col] || []) {
       const i = db[col].findIndex(x => x.id === r.id);
-      if (i < 0) { db[col].push(r); novos++; }
-      else if ((r.atualizadoEm || '') > (db[col][i].atualizadoEm || '')) { db[col][i] = r; atualizados++; }
+      if (i < 0) { db[col].push(r); novos++; enviarNuvem(col, r); }
+      else if ((r.atualizadoEm || '') > (db[col][i].atualizadoEm || '')) { db[col][i] = r; atualizados++; enviarNuvem(col, r); }
     }
   }
   for (const [id, f] of Object.entries(outro.fotos || {})) {
@@ -1459,7 +1724,7 @@ function mesclar(outro) {
   }
   // só pode haver uma vacinação em andamento
   const abertos = lista('manejos').filter(m => m.aberto).sort((a, b) => b.atualizadoEm.localeCompare(a.atualizadoEm));
-  abertos.slice(1).forEach(m => { m.aberto = false; });
+  abertos.slice(1).forEach(m => { m.aberto = false; gravar('manejos', m); });
   salvar();
   return { novos, atualizados };
 }
@@ -1560,6 +1825,8 @@ function render() {
   const [, nome = 'inicio', arg] = location.hash.split('/');
   const rota = ROTAS[nome] || inicio;
   fecharModal();
+  if (nuvem.configurada && nuvem.estadoConhecido && !nuvem.usuario && nuvem.auth) return telaLogin();
+  document.body.classList.remove('sem-nav');
   const nav = nome === 'editar' && arg === 'novo' ? 'cadastrar' : NAV_DA_ROTA[nome] || nome;
   $$('#nav a').forEach(a => a.classList.toggle('ativo', a.dataset.rota === nav));
   rota(arg && decodeURIComponent(arg));
@@ -1569,7 +1836,7 @@ function render() {
 window.addEventListener('hashchange', render);
 // Se o mesmo app estiver aberto em outra aba, recarrega os dados.
 window.addEventListener('storage', e => { if (e.key === CHAVE) { db = carregar(); render(); } });
-carregarFotos().then(render);
+carregarFotos().then(() => { render(); iniciarNuvem(); });
 
 // Pede ao navegador para não apagar os dados quando o celular estiver com pouco espaço.
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist();

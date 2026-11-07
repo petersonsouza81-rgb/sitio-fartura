@@ -64,6 +64,12 @@ small { color: var(--suave); }
   padding: 12px 16px; padding-top: calc(12px + env(safe-area-inset-top));
 }
 #topo h1 { font-size: 20px; margin: 0; font-weight: 650; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#statusNuvem { background: rgba(255,255,255,.15); border: 0; border-radius: 99px; color: #fff; font: inherit; font-size: 15px; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
+body.sem-nav #nav { display: none; }
+.login { text-align: center; padding-top: 12px; }
+.login img { width: 96px; height: 96px; border-radius: 18px; object-fit: cover; background: #fff; }
+.login h2 { font-size: 24px; margin: 10px 0 4px; color: var(--verde); }
+.login .form { text-align: left; }
 .logo-topo { flex: 0 0 auto; display: block; line-height: 0; }
 .logo-topo img { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; background: #fff; }
 #voltar { background: none; border: 0; color: #fff; font-size: 24px; padding: 0 8px 0 0; cursor: pointer; }
