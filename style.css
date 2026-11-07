@@ -232,6 +232,14 @@ dl.dados dd { margin: 0; font-weight: 600; }
 }
 .slot-foto img { width: 100%; height: 100%; object-fit: cover; }
 
+/* Instalar o app */
+.btn.instalar {
+  background: var(--verde-claro); border: 2px dashed var(--verde); color: var(--verde);
+  font-size: 17px; padding: 14px; margin: 0 0 12px;
+}
+.passos { padding-left: 22px; margin: 4px 0 8px; }
+.passos li { margin-bottom: 10px; }
+
 /* Cabeçalho dos relatórios */
 .relatorio-topo {
   display: flex; align-items: center; gap: 12px;

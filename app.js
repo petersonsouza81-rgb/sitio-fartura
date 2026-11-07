@@ -489,6 +489,7 @@ function inicio() {
       <strong>💉 Vacinação em andamento</strong><br>
       <small>${fmtData(m.data)} · ${aplicacoesDo(m.id).length} animais lançados</small><br>
       <span class="btn primario" style="margin-bottom:0">Continuar lançamento</span></a>` : ''}
+    ${botaoInstalar()}
     <div class="resumo">
       ${GRUPOS.filter(([g]) => cont[g]).map(([g, n]) => `<a href="#/animais/${g}"><b>${cont[g]}</b><span>${n}</span></a>`).join('')}
       <a href="#/animais/todos"><b>${at.length}</b><span>Total ativos</span></a>
@@ -502,6 +503,7 @@ function inicio() {
     <h2>Últimas vacinações</h2>
     ${ultimos.length ? `<ul class="lista">${ultimos.map(itemManejo).join('')}</ul>` : '<p class="dica">Nenhuma vacinação registrada ainda.</p>'}
   `;
+  ligarInstalar();
 }
 
 function itemManejo(m) {
@@ -1255,6 +1257,7 @@ function mais() {
   const podeCompartilhar = !!(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.json', { type: 'application/json' })] }));
   const nFotos = [...fotos.values()].filter(f => f.foto).length;
   app.innerHTML = `
+    ${botaoInstalar()}
     <a class="btn" href="#/produtos">💊 Produtos (vacinas, vermífugos…)</a>
 
     <h2>Backup</h2>
@@ -1283,6 +1286,7 @@ function mais() {
     <button class="btn perigo" id="zerar" style="margin-top:24px">Apagar todos os dados deste celular</button>
     <p class="dica" style="text-align:center">${NOME_SITIO} · ${lista('animais').length} animais · ${nFotos} fotos · ${lista('aplicacoes').length} aplicações</p>`;
 
+  ligarInstalar();
   const compartilhar = $('#compartilhar');
   if (compartilhar) compartilhar.onclick = async () => {
     try {
@@ -1439,6 +1443,59 @@ function csvAplicacoes() {
     .map(({ x, m, a }) => [fmtData(m.data), fmtHora(x.criadoEm), a.brinco || '', mae(a)?.brinco || '', categoria(a), a.marca,
       nomesProdutos(x.produtoIds), dec(x.peso), x.obs]);
   return csv('sitio-fartura-aplicacoes', ['Data', 'Hora', 'Brinco', 'Brinco da mãe', 'Categoria', 'Marca/cor', 'Produtos', 'Peso (kg)', 'Obs.'], linhas);
+}
+
+/* ---------- Instalar o app no celular ---------- */
+
+// O Chrome do Android avisa quando o app pode ser instalado; guardamos esse
+// aviso para abrir a janela de instalação quando a pessoa tocar no botão.
+let pedidoInstalacao = null;
+const appInstalado = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  pedidoInstalacao = e;
+});
+window.addEventListener('appinstalled', () => {
+  pedidoInstalacao = null;
+  toast('App instalado ✔ Procure o ícone Sítio Fartura no celular.');
+  render();
+});
+
+const botaoInstalar = () => appInstalado() ? '' :
+  '<button class="btn instalar" id="instalar">📲 Baixar o app no celular</button>';
+
+function ligarInstalar() {
+  const b = $('#instalar');
+  if (b) b.onclick = instalarApp;
+}
+
+async function instalarApp() {
+  if (pedidoInstalacao) {
+    pedidoInstalacao.prompt();
+    const { outcome } = await pedidoInstalacao.userChoice;
+    pedidoInstalacao = null;
+    if (outcome !== 'accepted') toast('Instalação cancelada');
+    return;
+  }
+  // Sem a janela automática (iPhone, ou navegador que não oferece): mostra o passo a passo.
+  const iphone = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const caixa = modal(`
+    <div class="modal-animal"><img src="icones/icone-192.png" alt=""><div><h3>Instalar o ${NOME_SITIO}</h3>
+      <p class="dica" style="margin:0">Fica um ícone na tela do celular e funciona sem internet.</p></div></div>
+    ${iphone ? `<ol class="passos">
+        <li>Abra este site no <b>Safari</b>.</li>
+        <li>Toque no botão <b>Compartilhar</b> (quadrado com seta para cima ⬆️), embaixo da tela.</li>
+        <li>Toque em <b>Adicionar à Tela de Início</b>.</li>
+        <li>Toque em <b>Adicionar</b>.</li>
+      </ol>` : `<ol class="passos">
+        <li>Abra este site no <b>Chrome</b>.</li>
+        <li>Toque nos <b>três pontinhos ⋮</b>, no canto de cima.</li>
+        <li>Toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</li>
+        <li>Confirme em <b>Instalar</b>.</li>
+      </ol>`}
+    <button class="btn primario grande" id="entendi">Entendi</button>`);
+  $('#entendi', caixa).onclick = fecharModal;
 }
 
 /* ---------- Rotas ---------- */
