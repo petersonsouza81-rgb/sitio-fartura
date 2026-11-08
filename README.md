@@ -6,6 +6,9 @@ Controle de ovinos, caprinos, bovinos e equinos do Sítio Fartura.
 
 **Abrir o app:** https://petersonsouza81-rgb.github.io/sitio-fartura/
 
+**Como usar (vídeo e guia):** https://petersonsouza81-rgb.github.io/sitio-fartura/guia.html
+— também em *Mais → Como usar o app* e na tela de entrada. As telas do guia usam animais de exemplo.
+
 App web para usar no celular, no curral, na hora de vacinar. Não precisa de internet
 depois de aberto a primeira vez, e não precisa de servidor: é só HTML, CSS e JavaScript.
 

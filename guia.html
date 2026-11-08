@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2f6b3a">
+  <title>Como usar · Sítio Fartura</title>
+  <link rel="icon" href="icones/icone-192.png" type="image/png">
+  <style>
+    :root { --fundo: #f4f1ea; --cartao: #fff; --texto: #22261f; --suave: #6b6f64; --borda: #ddd8cc; --verde: #2f6b3a; --verde-claro: #e3efe2; --laranja: #ff8a00; }
+    @media (prefers-color-scheme: dark) {
+      :root { --fundo: #161814; --cartao: #22251f; --texto: #ecebe4; --suave: #a3a69b; --borda: #3a3e35; --verde: #5fae6b; --verde-claro: #23361f; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--fundo); color: var(--texto); font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; background: #2f6b3a; color: #fff; padding: 12px 16px; padding-top: calc(12px + env(safe-area-inset-top)); }
+    header img { width: 34px; height: 34px; border-radius: 8px; background: #fff; }
+    header h1 { font-size: 19px; margin: 0; flex: 1; }
+    header a { color: #fff; text-decoration: none; font-weight: 600; font-size: 15px; white-space: nowrap; }
+    main { max-width: 720px; margin: 0 auto; padding: 16px; }
+    .intro { font-size: 18px; }
+    video { display: block; width: 100%; max-height: 80vh; background: #000; border-radius: 14px; margin: 8px 0 6px; }
+    .dica-video { color: var(--suave); font-size: 14px; text-align: center; margin: 0 0 18px; }
+    nav.indice { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 18px; }
+    nav.indice a { background: var(--cartao); border: 1px solid var(--borda); border-radius: 99px; padding: 6px 12px; color: var(--texto); text-decoration: none; font-size: 15px; }
+    section { background: var(--cartao); border: 1px solid var(--borda); border-radius: 16px; padding: 16px; margin-bottom: 16px; scroll-margin-top: 70px; }
+    section h2 { margin: 0 0 8px; font-size: 21px; display: flex; align-items: center; gap: 8px; }
+    section h2 .n { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; background: var(--verde); color: #fff; font-size: 16px; display: grid; place-items: center; }
+    .lado { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    @media (min-width: 640px) { .lado { grid-template-columns: 230px 1fr; align-items: start; } }
+    .tela { width: 100%; max-width: 280px; justify-self: center; border-radius: 18px; border: 6px solid #1b1b1b; display: block; }
+    ol, ul { margin: 0; padding-left: 22px; }
+    li { margin-bottom: 8px; }
+    b.botao { background: var(--verde-claro); border-radius: 6px; padding: 0 6px; white-space: nowrap; }
+    .obs { background: #fff4d6; color: #5b4300; border-radius: 10px; padding: 10px 12px; margin-top: 12px; font-size: 15px; }
+    @media (prefers-color-scheme: dark) { .obs { background: #3a3013; color: #f1dc9c; } }
+    footer { text-align: center; color: var(--suave); font-size: 14px; padding: 8px 0 30px; }
+    .voltar { display: block; text-align: center; background: var(--verde); color: #fff; text-decoration: none; font-weight: 700; border-radius: 12px; padding: 14px; margin: 8px 0 16px; }
+  </style>
+</head>
+<body>
+<header>
+  <img src="icones/logo.jpg" alt="">
+  <h1>Como usar o app</h1>
+  <a href="./">Abrir o app ›</a>
+</header>
+
+<main>
+  <p class="intro">Este guia mostra <b>todas as ferramentas</b> do app do Sítio Fartura. Comece pelo vídeo:
+    ele explica tudo, devagar, em uns 5 minutos.</p>
+
+  <video controls playsinline preload="metadata" poster="guia/inicio.jpg">
+    <source src="guia/video.mp4" type="video/mp4">
+  </video>
+  <p class="dica-video">Toque no ▶ para assistir. Se quiser, mande este link pelo WhatsApp.</p>
+
+  <nav class="indice" aria-label="Partes do guia">
+    <a href="#entrar">Entrar</a><a href="#inicio">Tela inicial</a><a href="#cadastrar">Cadastrar</a>
+    <a href="#animais">Animais</a><a href="#vacinar">Vacinar</a><a href="#parto">Parto</a>
+    <a href="#animal">Ver um animal</a><a href="#saida">Venda, abate e morte</a><a href="#ficha">Ficha</a>
+    <a href="#almox">Almoxarifado</a><a href="#nuvem">Nuvem</a><a href="#instalar">Instalar</a><a href="#duvidas">Dúvidas</a>
+  </nav>
+
+  <section id="entrar">
+    <h2><span class="n">1</span>Entrar no app</h2>
+    <div class="lado">
+      <img class="tela" src="guia/login.jpg" alt="Tela de entrada com e-mail e senha" loading="lazy">
+      <ol>
+        <li>Na primeira vez, o app pede o <b>e-mail</b> e a <b>senha</b> do sítio.</li>
+        <li>Digite e toque em <b class="botao">Entrar</b>. Precisa de internet só nessa hora.</li>
+        <li>Depois disso o app abre direto, mesmo sem sinal.</li>
+        <li>Esqueceu a senha? Toque em <b class="botao">Esqueci a senha</b>: chega um e-mail para criar outra.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="inicio">
+    <h2><span class="n">2</span>Tela inicial</h2>
+    <div class="lado">
+      <img class="tela" src="guia/inicio.jpg" alt="Tela inicial com quantidade de animais" loading="lazy">
+      <ul>
+        <li>Mostra <b>quantos animais</b> há de cada tipo. Toque num número para ver a lista.</li>
+        <li><b class="botao">Iniciar vacinação</b>, <b class="botao">Parto</b>, <b class="botao">Cadastrar</b>,
+          <b class="botao">Fichas</b> e <b class="botao">Almoxarifado</b> ficam aqui.</li>
+        <li>Se faltar algum remédio, aparece o aviso amarelo <b>“Falta comprar”</b> no topo.</li>
+        <li>Embaixo, os menus de sempre: Início, Cadastrar, Animais, Vacinar, Parto, Fichas e Mais.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="cadastrar">
+    <h2><span class="n">3</span>Cadastrar um animal</h2>
+    <div class="lado">
+      <img class="tela" src="guia/cadastrar.jpg" alt="Formulário de cadastro de animal" loading="lazy">
+      <ol>
+        <li>Toque em <b class="botao">Cadastrar</b>.</li>
+        <li>Escolha a <b>espécie</b> (ovino, caprino, bovino ou equino) e o <b>sexo</b>.</li>
+        <li>Se for macho, diga se é <b>reprodutor</b>.</li>
+        <li>Digite o <b>número do brinco</b>. Se dois animais da mesma espécie têm o mesmo número, use <b>Marca / cor do brinco</b>.</li>
+        <li>Se quiser, tire uma <b>foto</b> (<b class="botao">Tirar foto</b>) ou escolha da <b class="botao">Galeria</b>.</li>
+        <li>Toque em <b class="botao">Salvar</b>.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="animais">
+    <h2><span class="n">4</span>Lista de animais</h2>
+    <div class="lado">
+      <img class="tela" src="guia/animais.jpg" alt="Lista de animais com busca e filtros" loading="lazy">
+      <ul>
+        <li>Em <b class="botao">Animais</b> aparecem todos os animais.</li>
+        <li>Digite o <b>número do brinco</b> para achar rápido.</li>
+        <li>Toque nos botões para ver só <b>ovelhas</b>, <b>cabras</b>, <b>vacas</b>, <b>filhotes</b>…</li>
+        <li>Cada espécie tem uma cor no número do brinco. A ovelha 12 e a cabra 12 são animais diferentes.</li>
+        <li>Filhote ainda sem brinco aparece como “s/ brinco”, com o brinco da mãe.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="vacinar">
+    <h2><span class="n">5</span>Vacinar (o mais rápido possível)</h2>
+    <div class="lado">
+      <img class="tela" src="guia/vacinar.jpg" alt="Tela de vacinação com produtos marcados e animais lançados" loading="lazy">
+      <ol>
+        <li>Toque em <b class="botao">Vacinar</b>.</li>
+        <li>Em <b>“Aplicando agora”</b>, toque no que vai aplicar (ex.: Vermífugo e Vitamina). Eles ficam verdes.</li>
+        <li><b>Toque no animal: pronto, já está lançado.</b> Ele fica verde. Não aparece nenhuma pergunta.</li>
+        <li>Mais rápido ainda: digite o brinco e aperte <b>OK</b> no teclado.</li>
+        <li>Mudou o remédio? Toque nos produtos de cima de novo. Vale para os próximos animais.</li>
+        <li>As abas <b>Faltam</b> e <b>Feitos</b> mostram quem já recebeu.</li>
+        <li>No fim, toque em <b class="botao">Encerrar o dia de vacinação</b>.</li>
+      </ol>
+    </div>
+    <div class="lado" style="margin-top:14px">
+      <img class="tela" src="guia/vacinar_detalhe.jpg" alt="Janela para anotar peso e observação" loading="lazy">
+      <ul>
+        <li>Para anotar <b>peso</b> ou <b>observação</b>, toque nos <b class="botao">⋯</b> ao lado do animal.</li>
+        <li>Tocou no animal errado? Use <b class="botao">Desfazer</b>, que aparece embaixo por alguns segundos.</li>
+        <li>Tocar num animal que já está verde abre para <b>corrigir ou remover</b>.</li>
+        <li>Se esquecer de marcar o produto em cima, o app avisa e não lança nada.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="parto">
+    <h2><span class="n">6</span>Registrar parto</h2>
+    <div class="lado">
+      <img class="tela" src="guia/parto.jpg" alt="Registro de parto com mãe e filhote" loading="lazy">
+      <ol>
+        <li>Toque em <b class="botao">Parto</b> e digite o <b>brinco da mãe</b>. Toque nela.</li>
+        <li>Escolha se o filhote é <b>fêmea ou macho</b>, a <b>data</b> e o <b>peso</b>.</li>
+        <li>O brinco do filhote é opcional. Dá para colocar depois.</li>
+        <li>Toque em <b class="botao">Salvar filhote</b>. Gêmeos: salve o segundo em seguida.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="animal">
+    <h2><span class="n">7</span>Ver um animal</h2>
+    <div class="lado">
+      <img class="tela" src="guia/animal.jpg" alt="Página de um animal com botões de morte, abate e venda" loading="lazy">
+      <ul>
+        <li>Toque em qualquer animal para ver os <b>dados</b>, os <b>filhotes</b> e as <b>últimas vacinas</b>.</li>
+        <li><b class="botao">Editar / colocar foto</b> muda o cadastro ou coloca o brinco num filhote.</li>
+        <li><b class="botao">Morte</b>, <b class="botao">Abate</b> e <b class="botao">Venda</b> ficam aqui, para quando o animal sair do rebanho.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="saida">
+    <h2><span class="n">8</span>Venda, abate e morte</h2>
+    <div class="lado">
+      <img class="tela" src="guia/venda.jpg" alt="Registro de venda com valor total calculado" loading="lazy">
+      <ul>
+        <li><b>Venda:</b> comprador, peso e valor por quilo. O <b>total sai sozinho</b>.</li>
+        <li><b>Abate:</b> data e peso do animal.</li>
+        <li><b>Morte:</b> data, causa e até <b>2 fotos</b>.</li>
+        <li>O animal sai das contagens, mas o histórico dele continua guardado.</li>
+        <li>Marcou errado? Na página do animal tem <b class="botao">Desfazer</b>.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="ficha">
+    <h2><span class="n">9</span>Ficha do animal (relatório)</h2>
+    <div class="lado">
+      <img class="tela" src="guia/ficha.jpg" alt="Ficha completa do animal" loading="lazy">
+      <ul>
+        <li>Em <b class="botao">Fichas</b>, toque no animal para ver a <b>vida inteira</b> dele.</li>
+        <li>Mostra a <b>última vez</b> que recebeu cada remédio, as <b>pesagens</b> (com o ganho de peso) e os <b>partos</b>.</li>
+        <li>No fim da ficha: <b class="botao">Imprimir / salvar PDF</b> e <b class="botao">Enviar como texto</b> pelo WhatsApp.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="almox">
+    <h2><span class="n">10</span>Almoxarifado (o que precisa comprar)</h2>
+    <div class="lado">
+      <img class="tela" src="guia/almox.jpg" alt="Almoxarifado com lista do que falta comprar e produtos" loading="lazy">
+      <ol>
+        <li>Abra o <b class="botao">Almoxarifado</b> (na tela inicial ou em Mais).</li>
+        <li>Remédio <b>acabando</b>? Toque nele, diga <b>quanto precisa comprar</b> e toque em <b class="botao">Pôr na lista de compras</b>.</li>
+        <li>Coisas que não são remédio (seringa, agulha) entram com <b class="botao">Novo produto</b>, tipo <b>Material</b>.</li>
+      </ol>
+    </div>
+    <div class="lado" style="margin-top:14px">
+      <img class="tela" src="guia/lembrete.jpg" alt="Lembrete diário do que falta comprar" loading="lazy">
+      <ul>
+        <li>Enquanto ninguém comprar, o app <b>lembra uma vez por dia</b> ao abrir, nos dois celulares.</li>
+        <li>Comprou? Toque em <b class="botao">Comprei</b> e coloque o <b>valor pago</b>. O lembrete para.</li>
+      </ul>
+    </div>
+    <div class="lado" style="margin-top:14px">
+      <img class="tela" src="guia/almox_custos.jpg" alt="Gastos do ano e de cada mês" loading="lazy">
+      <ul>
+        <li>Em <b>Compras e custos</b> aparece o <b>gasto do ano</b> e de <b>cada mês</b>.</li>
+        <li>Toque numa compra para corrigir o valor.</li>
+        <li>Em <b>Mais → Planilhas</b> dá para baixar tudo para o Excel.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="nuvem">
+    <h2><span class="n">11</span>Tudo salvo na nuvem</h2>
+    <div class="lado">
+      <img class="tela" src="guia/nuvem.jpg" alt="Ícone de nuvem no topo do app" loading="lazy">
+      <ul>
+        <li>Tudo o que vocês lançam <b>vai sozinho para a internet</b> e aparece no celular do outro.</li>
+        <li>O ícone no canto de cima mostra a situação:
+          <b>☁️</b> tudo salvo · <b>⏳</b> enviando · <b>📴</b> sem internet (envia depois) · <b>⚠️</b> problema (toque nele).</li>
+        <li><b>Sem sinal no curral</b>, o app funciona normal.</li>
+        <li>Celular quebrou ou trocou? Entre com o mesmo e-mail e senha e <b>tudo volta</b>.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="instalar">
+    <h2><span class="n">12</span>Colocar o app na tela do celular</h2>
+    <div class="lado">
+      <img class="tela" src="guia/instalar.jpg" alt="Passo a passo para instalar o app" loading="lazy">
+      <ul>
+        <li>Em <b class="botao">Mais</b>, toque em <b class="botao">📲 Instalar no celular</b>.</li>
+        <li><b>Android (Chrome):</b> confirme em <b>Instalar</b>.</li>
+        <li><b>iPhone (Safari):</b> botão <b>Compartilhar</b> ⬆️ → <b>Adicionar à Tela de Início</b>.
+          No iPhone, depois de instalar, entre com o e-mail e a senha mais uma vez.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="duvidas">
+    <h2><span class="n">?</span>Dúvidas comuns</h2>
+    <ul>
+      <li><b>Dois animais com o mesmo brinco?</b> Pode. Ovelha 12 e cabra 12 são diferentes. Na mesma espécie, use a marca/cor do brinco ou a foto.</li>
+      <li><b>Filhote sem brinco?</b> Ele aparece pelo brinco da mãe: digite o brinco da mãe na busca.</li>
+      <li><b>Lancei errado?</b> Toque de novo no animal (fica verde) para corrigir ou remover.</li>
+      <li><b>As fotos ficam na galeria?</b> Não: ficam no app e na nuvem. Se quiser na galeria também, tire com a câmera do celular e use o botão <b>Galeria</b> no app.</li>
+    </ul>
+    <p class="obs">Os animais que aparecem nas fotos deste guia são de exemplo.</p>
+  </section>
+
+  <a class="voltar" href="./">Abrir o app</a>
+  <footer>Sítio Fartura · guia do aplicativo</footer>
+</main>
+</body>
+</html>

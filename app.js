@@ -365,6 +365,7 @@ function telaLogin() {
         <button class="btn primario grande">Entrar</button>
         <button type="button" class="btn" id="esqueci">Esqueci a senha</button>
       </form>
+      <a class="btn" href="guia.html">❓ Como usar o app (vídeo)</a>
     </div>`;
   const f = $('#fl');
   const { signInWithEmailAndPassword, sendPasswordResetEmail } = nuvem.authApi;
@@ -1550,6 +1551,7 @@ function mais() {
   const nFotos = [...fotos.values()].filter(f => f.foto).length;
   app.innerHTML = `
     ${botaoInstalar()}
+    <a class="btn primario" href="guia.html">❓ Como usar o app (vídeo)</a>
     <a class="btn" href="#/produtos">💊 Produtos (vacinas, vermífugos…)</a>
     <a class="btn" href="#/almoxarifado">🧰 Almoxarifado (o que precisa comprar)</a>
 
