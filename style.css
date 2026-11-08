@@ -120,6 +120,10 @@ main { max-width: 720px; margin: 0 auto; padding: 16px; }
 .btn.pequeno { display: inline-block; width: auto; padding: 6px 12px; margin: 0; font-size: 14px; }
 .linha-botoes { display: flex; gap: 8px; }
 .linha-botoes > * { flex: 1; }
+/* Atalhos da tela inicial: ícone em cima, nome embaixo, todos do mesmo tamanho */
+.atalhos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0; }
+.atalhos .btn { margin: 0; padding: 10px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 15px; }
+.atalhos .btn span { font-size: 22px; line-height: 1.1; }
 
 /* Formulários */
 .form label { display: block; font-weight: 600; font-size: 15px; margin: 14px 0 6px; }
@@ -261,6 +265,21 @@ dl.dados dd { margin: 0; font-weight: 600; }
 .compra .info small { display: block; }
 .compra .acoes { display: flex; gap: 6px; }
 .compra.comprado { border-left-color: var(--ok); opacity: .8; }
+.produto-almox.na-lista { border-color: #e0a800; }
+.selo-falta { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 99px; background: #fff4d6; color: #7a5b00; white-space: nowrap; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
+@media (prefers-color-scheme: dark) { .selo-falta { background: #3a3013; color: #f1dc9c; } }
+.ano-linha { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.ano-linha label { font-weight: 600; font-size: 15px; }
+.ano-linha select { width: auto; min-width: 110px; }
+.total-ano { text-align: right; }
+.total-ano small { display: block; }
+.total-ano b { font-size: 24px; color: var(--verde); }
+details.mes { background: var(--cartao); border: 1px solid var(--borda); border-radius: var(--raio); margin-bottom: 8px; padding: 0 12px; }
+details.mes summary { display: flex; justify-content: space-between; gap: 8px; padding: 12px 0; cursor: pointer; font-weight: 600; }
+details.mes summary span:last-child { font-weight: 400; color: var(--suave); }
+details.mes summary b { color: var(--texto); }
+details.mes .lista { padding-bottom: 4px; }
+.item .valor { white-space: nowrap; }
 
 /* Instalar o app */
 .instalar-linha { margin: 0 0 12px; text-align: right; }

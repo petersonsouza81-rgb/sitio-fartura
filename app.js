@@ -42,7 +42,9 @@ const ordBrinco = (a, b) => (!a.brinco - !b.brinco) || (a.brinco || '').localeCo
 const TIPOS_PRODUTO = {
   vacina: 'Vacina', vermifugo: 'Vermífugo', vitamina: 'Vitamina',
   antibiotico: 'Antibiótico', remedio: 'Remédio', outro: 'Outro',
+  material: 'Material (seringa, agulha…)', // só no almoxarifado, não aparece na vacinação
 };
+const usadoNaVacina = p => !p.inativo && p.tipo !== 'material';
 
 // Até quantos dias de vida o animal conta como filhote, por espécie.
 const FILHOTE_PADRAO = { ovino: 180, caprino: 180, bovino: 365, equino: 365 };
@@ -740,10 +742,10 @@ function inicio() {
       <a href="#/animais/todos"><b>${at.length}</b><span>Total ativos</span></a>
     </div>
     ${m ? '' : '<a class="btn primario grande" href="#/vacinacao">💉 Iniciar vacinação</a>'}
-    <div class="linha-botoes">
-      <a class="btn" href="#/nascimento">🍼 Parto</a>
-      <a class="btn" href="#/editar/novo">➕ Cadastrar</a>
-      <a class="btn" href="#/fichas">📋 Fichas</a>
+    <div class="atalhos">
+      <a class="btn" href="#/nascimento"><span>🍼</span>Parto</a>
+      <a class="btn" href="#/editar/novo"><span>➕</span>Cadastrar</a>
+      <a class="btn" href="#/fichas"><span>📋</span>Fichas</a>
     </div>
     <a class="btn" href="#/almoxarifado">🧰 Almoxarifado${falta.length ? ` (${falta.length} para comprar)` : ''}</a>
     <h2>Últimas vacinações</h2>
@@ -1178,7 +1180,7 @@ function vacinacao() {
   const especiesUsadas = Object.keys(ESPECIES).filter(e => ativos().some(a => a.especie === e));
   if (especieVacina !== 'todos' && !especiesUsadas.includes(especieVacina)) especieVacina = 'todos';
   const historico = lista('manejos').filter(x => !x.aberto).sort((a, b) => b.data.localeCompare(a.data));
-  const prods = lista('produtos').filter(p => !p.inativo);
+  const prods = lista('produtos').filter(usadoNaVacina);
   // Na primeira vez, já vem marcado o que o último animal recebeu.
   if (!produtosSel) produtosSel = new Set(m ? ultimoLancado(m) : []);
   for (const id of [...produtosSel]) if (!prods.some(p => p.id === id)) produtosSel.delete(id);
@@ -1380,7 +1382,7 @@ function abrirLancamento(animalId) {
   if (!a) return;
   const ap = m && aplicacoesDo(m.id).find(x => x.animalId === animalId);
   const marcados = new Set(ap ? ap.produtoIds : produtosSel || []);
-  const prods = lista('produtos').filter(p => !p.inativo || marcados.has(p.id));
+  const prods = lista('produtos').filter(p => usadoNaVacina(p) || marcados.has(p.id));
   const anterior = ap || !m ? [] : ultimoLancado(m, animalId);
   const ult = historicoDe(a)[0];
   const f = fotoDe(a.id);
@@ -1564,6 +1566,7 @@ function mais() {
     <h2>Planilhas (Excel)</h2>
     <button class="btn" id="csvAnimais">📄 Animais (.csv)</button>
     <button class="btn" id="csvAplic">📄 Aplicações (.csv)</button>
+    <button class="btn" id="csvCompras">📄 Compras do almoxarifado (.csv)</button>
 
     <h2>Configuração</h2>
     <form class="form cartao" id="cfg">
@@ -1582,6 +1585,7 @@ function mais() {
   atualizarStatusNuvem();
   $('#csvAnimais').onclick = () => baixar(csvAnimais());
   $('#csvAplic').onclick = () => baixar(csvAplicacoes());
+  $('#csvCompras').onclick = () => baixar(csvCompras());
   $('#cfg').onsubmit = e => {
     e.preventDefault();
     const dias = Object.fromEntries(Object.keys(ESPECIES).map(k => [k, parseInt(e.target[k].value, 10)]));
@@ -1684,6 +1688,12 @@ function csvAplicacoes() {
       nomesProdutos(x.produtoIds), dec(x.peso), x.obs]);
   return csv('sitio-fartura-aplicacoes', ['Data', 'Hora', 'Brinco', 'Brinco da mãe', 'Categoria', 'Marca/cor', 'Produtos', 'Peso (kg)', 'Obs.'], linhas);
 }
+function csvCompras() {
+  const linhas = lista('compras').filter(c => c.comprado)
+    .sort((a, b) => b.compradoEm.localeCompare(a.compradoEm))
+    .map(c => [fmtData(diaLocal(c.compradoEm)), c.nome, c.qtdComprada || c.qtd, dec(c.valor), c.loja]);
+  return csv('sitio-fartura-compras', ['Data', 'Item', 'Quantidade', 'Valor pago (R$)', 'Onde comprou'], linhas);
+}
 
 /* ---------- Instalar o app no celular ---------- */
 
@@ -1750,72 +1760,159 @@ const diaLocal = iso => {
   return d.toISOString().slice(0, 10);
 };
 
+const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+let anoAlmox = String(new Date().getFullYear());
+
 function almoxarifado() {
   titulo('Almoxarifado', true);
   const falta = faltaComprar();
-  const comprados = lista('compras').filter(c => c.comprado)
-    .sort((a, b) => b.compradoEm.localeCompare(a.compradoEm)).slice(0, 30);
-  const sugestoes = [...new Set([...lista('produtos').map(p => p.nome), ...lista('compras').map(c => c.nome)])]
-    .sort((a, b) => a.localeCompare(b, 'pt'));
+  const naLista = new Map(falta.filter(c => c.produtoId).map(c => [c.produtoId, c]));
+  const prods = lista('produtos').filter(p => !p.inativo).sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
+
+  // Compras do ano escolhido, separadas por mês, com o custo
+  const comprados = lista('compras').filter(c => c.comprado);
+  const anos = [...new Set([String(new Date().getFullYear()), ...comprados.map(c => diaLocal(c.compradoEm).slice(0, 4))])].sort().reverse();
+  if (!anos.includes(anoAlmox)) anoAlmox = anos[0];
+  const doAno = comprados.filter(c => diaLocal(c.compradoEm).startsWith(anoAlmox))
+    .sort((a, b) => b.compradoEm.localeCompare(a.compradoEm));
+  const soma = l => l.reduce((s, c) => s + (c.valor || 0), 0);
+  const porMes = new Map();
+  for (const c of doAno) {
+    const m = +diaLocal(c.compradoEm).slice(5, 7) - 1;
+    porMes.set(m, [...(porMes.get(m) || []), c]);
+  }
+  const semValor = doAno.filter(c => c.valor == null).length;
 
   app.innerHTML = `
-    <p class="dica" style="margin-top:0">Anote o que está acabando. O app lembra <b>uma vez por dia</b>, nos dois celulares,
-      até alguém marcar que já comprou.</p>
-    <form id="fc" class="form cartao" autocomplete="off">
-      <h2>➕ Anotar o que precisa comprar</h2>
-      <label>Medicamento ou material<input name="nome" list="sugestoes" required placeholder="ex.: Ivomec, seringa, vitamina ADE"></label>
-      <datalist id="sugestoes">${sugestoes.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
-      <div class="duas">
-        <label>Quantidade <small>(opcional)</small><input name="qtd" placeholder="ex.: 2 frascos"></label>
-        <label>Obs. <small>(opcional)</small><input name="obs" placeholder="ex.: acabou ontem"></label>
-      </div>
-      <button class="btn primario">Adicionar lembrete</button>
-    </form>
+    <p class="dica" style="margin-top:0">Toque no produto quando ele estiver acabando. O app lembra <b>uma vez por dia</b>,
+      nos dois celulares, até alguém marcar que comprou.</p>
 
     <h2>🔔 Falta comprar (${falta.length})</h2>
     ${falta.length ? `<ul class="lista">${falta.map(c => `<li class="compra">
         <div class="info"><strong>${esc(c.nome)}</strong>
-          <small>${esc([c.qtd, c.obs, 'anotado ' + haQuanto(diaLocal(c.criadoEm))].filter(Boolean).join(' · '))}</small></div>
+          <small>${esc([c.qtd ? 'comprar: ' + c.qtd : '', c.obs, 'anotado ' + haQuanto(diaLocal(c.criadoEm))].filter(Boolean).join(' · '))}</small></div>
         <div class="acoes">
-          <button class="btn pequeno primario" data-comprei="${c.id}">✅ Já comprei</button>
+          <button class="btn pequeno primario" data-comprei="${c.id}">✅ Comprei</button>
           <button class="btn pequeno" data-tirar="${c.id}" aria-label="Tirar da lista">✕</button>
         </div>
       </li>`).join('')}</ul>` : '<p class="dica">Nada faltando. 👍</p>'}
 
-    ${comprados.length ? `<h2>Comprados</h2><ul class="lista">${comprados.map(c => `<li class="compra comprado">
-        <div class="info"><strong>${esc(c.nome)}</strong>
-          <small>${esc([c.qtd, 'comprado em ' + fmtData(diaLocal(c.compradoEm))].filter(Boolean).join(' · '))}</small></div>
-        <div class="acoes"><button class="btn pequeno" data-denovo="${c.id}">↺ Precisa de novo</button></div>
-      </li>`).join('')}</ul>` : ''}`;
+    <h2>📦 Produtos</h2>
+    <p class="dica" style="margin-top:0">Acabou ou está acabando? Toque nele e diga quanto precisa comprar.</p>
+    <ul class="lista">${prods.map(p => {
+      const c = naLista.get(p.id);
+      return `<li><button class="item produto-almox ${c ? 'na-lista' : ''}" data-produto="${p.id}">
+        <span class="info"><strong>${esc(p.nome)}</strong><small>${TIPOS_PRODUTO[p.tipo] || ''}${p.dose ? ' · ' + esc(p.dose) : ''}</small></span>
+        ${c ? `<span class="selo-falta">na lista${c.qtd ? ': ' + esc(c.qtd) : ''}</span>` : '<span class="seta">›</span>'}
+      </button></li>`;
+    }).join('')}</ul>
+    <div class="linha-botoes">
+      <button class="btn" id="novoProduto">➕ Novo produto</button>
+      <button class="btn" id="outroItem">📝 Outro item</button>
+    </div>
 
-  const f = $('#fc');
-  f.onsubmit = e => {
-    e.preventDefault();
-    gravar('compras', { nome: f.nome.value.trim(), qtd: f.qtd.value.trim(), obs: f.obs.value.trim(), comprado: false, compradoEm: null });
-    toast('Lembrete anotado 🔔');
-    render();
-  };
+    <h2>📊 Compras e custos</h2>
+    <div class="cartao">
+      <div class="ano-linha">
+        <label>Ano <select id="anoAlmox">${anos.map(a => `<option ${a === anoAlmox ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
+        <div class="total-ano"><small>Gasto em ${anoAlmox}</small><b>${fmtReal(soma(doAno))}</b></div>
+      </div>
+      ${semValor ? `<p class="dica" style="margin:8px 0 0">${semValor} compra(s) sem valor anotado. Toque nelas para colocar o preço.</p>` : ''}
+    </div>
+    ${doAno.length ? [...porMes.entries()].map(([m, l]) => `
+      <details class="mes" ${m === new Date().getMonth() && anoAlmox === String(new Date().getFullYear()) ? 'open' : ''}>
+        <summary><span>${MESES[m]}</span><span>${l.length} compra(s) · <b>${fmtReal(soma(l))}</b></span></summary>
+        <ul class="lista">${l.map(c => `<li><button class="item" data-compra="${c.id}">
+          <span class="info"><strong>${esc(c.nome)}</strong>
+            <small>${esc([fmtData(diaLocal(c.compradoEm)), c.qtdComprada || c.qtd, c.loja].filter(Boolean).join(' · '))}</small></span>
+          <b class="valor">${c.valor != null ? fmtReal(c.valor) : '—'}</b>
+        </button></li>`).join('')}</ul>
+      </details>`).join('') : `<p class="dica">Nenhuma compra registrada em ${anoAlmox}.</p>`}`;
+
+  $('#anoAlmox').onchange = e => { anoAlmox = e.target.value; render(); };
+  $('#novoProduto').onclick = () => editarProduto();
+  $('#outroItem').onclick = () => anotarFalta(null);
   app.onclick = e => {
-    const b = e.target.closest('[data-comprei],[data-tirar],[data-denovo]');
+    const b = e.target.closest('[data-produto],[data-comprei],[data-tirar],[data-compra]');
     if (!b) return;
-    if (b.dataset.comprei) {
-      const c = achar('compras', b.dataset.comprei);
-      Object.assign(c, { comprado: true, compradoEm: agoraISO() });
-      gravar('compras', c);
-      render();
-      toast(`✅ ${c.nome} comprado`, 'Desfazer', () => { Object.assign(c, { comprado: false, compradoEm: null }); gravar('compras', c); render(); });
-    } else if (b.dataset.tirar) {
+    if (b.dataset.produto) anotarFalta(achar('produtos', b.dataset.produto));
+    else if (b.dataset.comprei) registrarCompra(achar('compras', b.dataset.comprei));
+    else if (b.dataset.compra) registrarCompra(achar('compras', b.dataset.compra));
+    else {
       const c = achar('compras', b.dataset.tirar);
       excluir('compras', c.id);
       render();
       toast(`${c.nome} saiu da lista`, 'Desfazer', () => { c.excluido = false; gravar('compras', c); render(); });
-    } else {
-      const c = achar('compras', b.dataset.denovo);
-      gravar('compras', { nome: c.nome, qtd: c.qtd, obs: '', comprado: false, compradoEm: null });
-      render();
-      toast(`🔔 ${c.nome} voltou para a lista`);
     }
   };
+}
+
+// "Acabou": anota na lista de compras quanto precisa comprar.
+function anotarFalta(produto) {
+  const ja = produto && faltaComprar().find(c => c.produtoId === produto.id);
+  const caixa = modal(`
+    <h3>📦 ${produto ? esc(produto.nome) : 'Outro item'}</h3>
+    <p class="dica" style="margin-top:0">${ja ? 'Já está na lista de compras. Pode mudar a quantidade.' : 'Acabou ou está acabando? Anote quanto precisa comprar.'}</p>
+    <form id="fa" class="form" autocomplete="off">
+      ${produto ? '' : '<label>Nome do item<input name="nome" required placeholder="ex.: luva, cal, sal mineral"></label>'}
+      <label>Quantidade para comprar<input name="qtd" value="${esc(ja ? ja.qtd : '')}" placeholder="ex.: 2 frascos de 500 ml"></label>
+      <label>Obs. <small>(opcional)</small><input name="obs" value="${esc(ja ? ja.obs : '')}" placeholder="ex.: acabou ontem"></label>
+      <button class="btn primario grande">${ja ? 'Salvar' : '🔔 Pôr na lista de compras'}</button>
+      <button type="button" class="btn" id="cancelar">Cancelar</button>
+    </form>`);
+  const f = $('#fa', caixa);
+  $('#cancelar', caixa).onclick = fecharModal;
+  f.onsubmit = e => {
+    e.preventDefault();
+    const dados = { qtd: f.qtd.value.trim(), obs: f.obs.value.trim() };
+    if (ja) gravar('compras', Object.assign(ja, dados));
+    else gravar('compras', { nome: produto ? produto.nome : f.nome.value.trim(), produtoId: produto ? produto.id : null, ...dados, comprado: false, compradoEm: null });
+    fecharModal();
+    toast(ja ? 'Quantidade atualizada' : '🔔 Anotado na lista de compras');
+    render();
+  };
+  (produto ? f.qtd : f.nome).focus();
+}
+
+// "Comprei": quantidade, valor pago, data e loja. Também serve para corrigir uma compra já feita.
+function registrarCompra(c) {
+  const feita = c.comprado;
+  const caixa = modal(`
+    <h3>✅ ${feita ? 'Compra de' : 'Comprei:'} ${esc(c.nome)}</h3>
+    <form id="fb" class="form" autocomplete="off">
+      <label>Quantidade comprada<input name="qtd" value="${esc(c.qtdComprada || c.qtd || '')}" placeholder="ex.: 2 frascos"></label>
+      <div class="duas">
+        <label>Valor pago (R$) <small>(total)</small><input name="valor" inputmode="decimal" value="${c.valor != null ? dec(c.valor.toFixed(2)) : ''}" placeholder="0,00"></label>
+        <label>Data<input type="date" name="data" value="${feita ? diaLocal(c.compradoEm) : hoje()}" max="${hoje()}" required></label>
+      </div>
+      <label>Onde comprou <small>(opcional)</small><input name="loja" value="${esc(c.loja || '')}" placeholder="ex.: Agropecuária Central"></label>
+      <button class="btn primario grande">${feita ? 'Salvar' : '✅ Registrar compra'}</button>
+      ${feita ? '<button type="button" class="btn" id="voltarLista">↺ Ainda não comprei (voltar para a lista)</button>' : ''}
+      <button type="button" class="btn" id="cancelar">Cancelar</button>
+    </form>`);
+  const f = $('#fb', caixa);
+  $('#cancelar', caixa).onclick = fecharModal;
+  if (feita) $('#voltarLista', caixa).onclick = () => {
+    Object.assign(c, { comprado: false, compradoEm: null });
+    gravar('compras', c);
+    fecharModal();
+    render();
+  };
+  f.onsubmit = e => {
+    e.preventDefault();
+    Object.assign(c, {
+      comprado: true,
+      compradoEm: new Date(f.data.value + 'T12:00').toISOString(),
+      qtdComprada: f.qtd.value.trim(),
+      valor: num(f.valor.value),
+      loja: f.loja.value.trim(),
+    });
+    gravar('compras', c);
+    fecharModal();
+    render();
+    if (!feita) toast(`✅ ${c.nome} comprado`, 'Desfazer', () => { Object.assign(c, { comprado: false, compradoEm: null }); gravar('compras', c); render(); });
+  };
+  if (!feita) f.valor.focus();
 }
 
 // Uma vez por dia (em cada celular), mostra o que falta comprar.

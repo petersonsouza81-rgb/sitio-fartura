@@ -50,11 +50,13 @@ depois de aberto a primeira vez, e não precisa de servidor: é só HTML, CSS e 
   resumo sanitário (última vez que recebeu cada produto e quantas vezes), pesagens com ganho de peso,
   partos e filhotes (fêmeas) e o histórico completo. Dá para **imprimir / salvar em PDF** ou
   **mandar como texto** pelo WhatsApp.
-- **Almoxarifado**: lista do que está acabando (medicamentos, seringas…). Enquanto ninguém
-  tocar em **Já comprei**, o app mostra um lembrete **uma vez por dia** ao abrir, nos dois
-  celulares, e a tela inicial mostra o aviso "Falta comprar". O que já foi comprado fica no
-  histórico, com o botão **Precisa de novo**.
-- **Planilhas**: exporta animais e aplicações em `.csv`, que abrem no Excel.
+- **Almoxarifado**: mostra os produtos cadastrados (os da vacinação e materiais como seringa,
+  que têm o tipo "Material" e não aparecem na vacinação). Tocando no produto, anota que acabou e
+  quanto precisa comprar. Enquanto ninguém marcar **Comprei**, o app lembra **uma vez por dia**
+  ao abrir, nos dois celulares, e a tela inicial mostra o aviso "Falta comprar".
+  Ao comprar, anota quantidade, **valor pago**, data e loja. A parte **Compras e custos** mostra o
+  gasto do ano e de cada mês; tocando numa compra dá para corrigir o valor.
+- **Planilhas**: exporta animais, aplicações e compras do almoxarifado em `.csv`, que abrem no Excel.
 
 ## Brincos com o mesmo número
 
