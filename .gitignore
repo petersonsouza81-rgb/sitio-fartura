@@ -4,6 +4,10 @@
 # Arquivo original do logo; o app usa a cópia em icones/logo.jpg
 Logo/
 
+# Planilhas com os dados do sítio (o repositório é público)
+Importar/
+*.xlsx
+
 # Arquivos do sistema
 Thumbs.db
 desktop.ini
