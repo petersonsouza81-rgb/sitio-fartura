@@ -1183,7 +1183,8 @@ function vacinacao() {
   const historico = lista('manejos').filter(x => !x.aberto).sort((a, b) => b.data.localeCompare(a.data));
   const prods = lista('produtos').filter(usadoNaVacina);
   // Na primeira vez, já vem marcado o que o último animal recebeu.
-  if (!produtosSel) produtosSel = new Set(m ? ultimoLancado(m) : []);
+  // Começa sem nada marcado: o jeito padrão é escolher o que aplicar em cada animal.
+  if (!produtosSel) produtosSel = new Set();
   for (const id of [...produtosSel]) if (!prods.some(p => p.id === id)) produtosSel.delete(id);
 
   app.innerHTML = `
@@ -1197,7 +1198,7 @@ function vacinacao() {
     </div>` : ''}
     <div class="painel-lancar">
       <div class="aplicando">
-        <span>Aplicando agora <small>(toque para marcar)</small></span>
+        <span>Mesmo produto para vários animais? <small>(opcional: marque aqui)</small></span>
         <div class="chips" id="selProdutos">
           ${prods.map(p => `<button class="chip ${produtosSel.has(p.id) ? 'on' : ''}" data-id="${p.id}">${esc(p.nome)}</button>`).join('')}
         </div>
@@ -1209,7 +1210,7 @@ function vacinacao() {
         <button data-aba="feitos">Feitos <b id="nd"></b></button>
       </div>
     </div>
-    <p class="dica" style="margin:0 0 8px">Toque no animal e ele já fica lançado. Use <b>⋯</b> para anotar peso ou observação.</p>
+    <p class="dica" id="dicaLancar" style="margin:0 0 8px"></p>
     <div id="res"></div>
     <button class="btn" id="encerrar" style="margin-top:24px" hidden>✅ Encerrar o dia de vacinação</button>
     <a class="btn" href="#/produtos">💊 Ver / cadastrar produtos</a>
@@ -1230,7 +1231,7 @@ function vacinacao() {
     if (!b) return;
     b.classList.toggle('on');
     if (b.classList.contains('on')) produtosSel.add(b.dataset.id); else produtosSel.delete(b.dataset.id);
-    $('#selProdutos').classList.remove('alerta');
+    atualizarLancar();
   };
   $('#dataVacina').onchange = e => {
     if (!e.target.value) return;
@@ -1288,6 +1289,9 @@ function atualizarLancar() {
   $('#nd').textContent = feitos;
   $$('#abas button').forEach(b => b.classList.toggle('on', b.dataset.aba === abaLancar));
   $('#encerrar').hidden = !m;
+  $('#dicaLancar').innerHTML = produtosSel && produtosSel.size
+    ? `Toque no animal e ele já fica lançado com <b>${esc(nomesProdutos([...produtosSel]))}</b>. Use <b>⋯</b> para anotar o peso.`
+    : 'Digite o brinco, <b>toque no animal</b>, escolha o que vai aplicar e toque em <b>Salvar</b>.';
 
   // Animal ainda não lançado: tocar lança na hora; "⋯" abre peso/obs.
   // Animal já lançado: tocar abre para corrigir ou remover.
@@ -1346,12 +1350,8 @@ function criarEabrir(chave, brinco) {
 function lancarRapido(animalId) {
   const a = achar('animais', animalId);
   if (!a) return;
-  if (!produtosSel || !produtosSel.size) {
-    toast('Marque em cima o que está aplicando.');
-    $('#selProdutos')?.classList.add('alerta');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    return;
-  }
+  // Nada marcado em "Aplicando agora": abre a janela para escolher o que aplicar e salvar.
+  if (!produtosSel || !produtosSel.size) return abrirLancamento(animalId);
   const m = manejoAberto();
   if (m && aplicacoesDo(m.id).some(x => x.animalId === animalId)) return abrirLancamento(animalId);
   const novo = gravar('aplicacoes', { manejoId: garantirManejo().id, animalId, produtoIds: [...produtosSel], peso: null, obs: '' });
@@ -1405,7 +1405,7 @@ function abrirLancamento(animalId) {
         <label>Peso (kg)<input name="peso" inputmode="decimal" value="${ap ? dec(ap.peso) : ''}"></label>
         <label>Obs.<input name="obs" value="${esc(ap ? ap.obs : '')}" placeholder="ex.: tosse, magra"></label>
       </div>
-      <button class="btn primario grande">${ap ? 'Salvar alteração' : 'Lançar'}</button>
+      <button class="btn primario grande">${ap ? 'Salvar alteração' : '💾 Salvar'}</button>
       ${ap ? '<button type="button" class="btn perigo" id="remover">Remover lançamento</button>' : ''}
       <button type="button" class="btn" id="cancelar">Cancelar</button>
     </form>`);
